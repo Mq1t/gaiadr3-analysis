@@ -7,7 +7,7 @@ def phase(t, T_0, P):
     return ((t-T_0)/P)%1
 
 #Plot G, Bp and Rp magnitude light curves in time.
-def plotLightCurves(df, g, bp, rp, g_time, bp_time, rp_time, title:str='Flux Vs. Time', overplot:bool=False, rejectflags: bool=False, period:float=None, xlim:float=None, ylim:float=None):
+def plot_lightcurves(df:pd.DataFrame, g, bp, rp, g_time, bp_time, rp_time, title:str='Flux Vs. Time', overplot:bool=False, rejectflags: bool=False, period:float=None, xlim:float=None, ylim:float=None):
     #Filter Rejections if true
     if rejectflags:
         g_df = df[df['variability_flag_g_reject'] == False]
@@ -47,6 +47,10 @@ def plotLightCurves(df, g, bp, rp, g_time, bp_time, rp_time, title:str='Flux Vs.
         plt.title(title)
         plt.legend()
         plt.gca().invert_yaxis()
+        if xlim is not None:
+            plt.xlim(xlim)
+        if ylim is not None:
+            plt.ylim(ylim)
     else:
         fig, axes = plt.subplots(4, 1, figsize=(6, 10))
         # Plot on each subplot
@@ -81,12 +85,13 @@ def plotLightCurves(df, g, bp, rp, g_time, bp_time, rp_time, title:str='Flux Vs.
         axes[3].legend()
         axes[3].invert_yaxis()
 
-        if ylims == None:
-            for ax in axes:
-                ax.set_ylim(5.41, 5.25)
-        else:
+        if ylim is not None:
             for ax in axes: 
-                ax.set_ylim(ylims[1], ylims[0])
+                #Flipped because the yaxis is inverted.
+                ax.set_ylim(ylim[1], ylim[0])
+        if xlim is not None:
+            for ax in axes: 
+                ax.set_ylim(xlim[0], xlim[1])
 
     plt.tight_layout()
     plt.show()
