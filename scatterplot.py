@@ -43,5 +43,4 @@ def proper_motion(df: pd.DataFrame, xlim=None, ylim=None, color: str ='red', siz
         plt.xlim(xlim)
     if ylim is not None:
         plt.ylim(ylim)
-    plt.legend()
     plt.show()
