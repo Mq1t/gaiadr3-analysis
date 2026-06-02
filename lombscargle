@@ -66,7 +66,7 @@ def period(t: pd.DataFrame = None, mag: pd.DataFrame = None, frequency_range: li
     return best_period_days
 
 
-def plot(t: pd.DataFrame = None, mag: pd.DataFrame = None, frequency_range: list[float] = None, jd: bool=True):
+def plot(t: pd.DataFrame = None, mag: pd.DataFrame = None, frequency_range: list[float] = None, lims: list[float] = None, jd: bool=True):
     #Default example for if t & y are not inputted.
     if t is None or y is None:
         rand = np.random.default_rng(42)
