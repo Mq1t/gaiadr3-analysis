@@ -1,9 +1,9 @@
-#distribution-of-distances-stars.py
+
 import matplotlib.pyplot as plt
 
-def plotDistances(df):
+def plotDistances(df, title:str='Distribution of Distances of Stars'):
 
-    plt.title('Distribution of Distances of Stars')
+    plt.title(title)
 
 #Calculating the distances of the filtered stars
     distances = (1000/df['parallax'])
