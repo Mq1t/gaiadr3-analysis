@@ -10,12 +10,12 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 def period(t: pd.DataFrame = None, mag: pd.DataFrame = None, frequency_range: list[float] = None, jd: bool=True):
     #Default example for if t & y are not inputted. 
     # FOR TESTING, DELETE AFTER!
-    if t is None or y is None:
+    if t is None or mag is None:
         rand = np.random.default_rng(42)
         #Time
         t = 100 * rand.random(100)
         #Frequency
-        y = np.sin(2 * np.pi * t) + 0.1 * rand.standard_normal(100)
+        mag = np.sin(2 * np.pi * t) + 0.1 * rand.standard_normal(100)
 
     #Convert Julian Days
     if jd:
@@ -32,7 +32,7 @@ def period(t: pd.DataFrame = None, mag: pd.DataFrame = None, frequency_range: li
         #Give extra room of about 20%
         freq_range = [P_min*0.8, P_max*1.2]
         
-    ls = LombScargle(t, y)
+    ls = LombScargle(t, mag)
     frequency, power = ls.autopower(
         minimum_frequency=1/freq_range[1],    # max period
         maximum_frequency=1/freq_range[0]  # min period
@@ -68,12 +68,12 @@ def period(t: pd.DataFrame = None, mag: pd.DataFrame = None, frequency_range: li
 
 def plot(t: pd.DataFrame = None, mag: pd.DataFrame = None, frequency_range: list[float] = None, lims: list[float] = None, jd: bool=True):
     #Default example for if t & y are not inputted.
-    if t is None or y is None:
+    if t is None or mag is None:
         rand = np.random.default_rng(42)
         #Time
         t = 100 * rand.random(100)
         #Frequency
-        y = np.sin(2 * np.pi * t) + 0.1 * rand.standard_normal(100)
+        mag = np.sin(2 * np.pi * t) + 0.1 * rand.standard_normal(100)
 
     #Convert Julian Days
     if jd:
@@ -81,19 +81,19 @@ def plot(t: pd.DataFrame = None, mag: pd.DataFrame = None, frequency_range: list
 
     #Frequency Range
 
-    # If user didn't specify freq_range, set it automatically
-    if freq_range is None:
+    # If user didn't specify frequency_range, set it automatically
+    if frequency_range is None:
         # Compute Nyquist period limit
         dt_median = np.median(np.diff(np.sort(t)))
         f_nyq = 1 / (2 * dt_median)
         P_min = 1 / f_nyq
         P_max = t.max() - t.min()
-        freq_range = [P_min, P_max]
+        frequency_range = [P_min, P_max]
         
-    ls = LombScargle(t, y)
+    ls = LombScargle(t, mag)
     frequency, power = ls.autopower(
-        minimum_frequency=1/freq_range[1],    # max period
-        maximum_frequency=1/freq_range[0]  # min period
+        minimum_frequency=1/frequency_range[1],    # max period
+        maximum_frequency=1/frequency_range[0]  # min period
     )
 
     #Convert frequency to period
