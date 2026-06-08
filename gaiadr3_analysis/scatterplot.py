@@ -24,7 +24,7 @@ def ra_dec(df: pd.DataFrame, xlim: int|float = None, ylim: int|float = None, col
     plt.show()
 
 #Proper motion
-def proper_motion(df: pd.DataFrame, xlim=None, ylim=None, color: str ='red', size: int|float = 0.5, title: str = 'Right Ascension Vs. Declination in Proper Motion Space'):
+def proper_motion(df: pd.DataFrame, xlim:float=None, ylim=None, color: str ='red', size: int|float = 0.5, title: str = 'Right Ascension Vs. Declination in Proper Motion Space'):
     #Checks if data is of type pandas dataframe.
     if not isinstance(df, pd.DataFrame):
         raise TypeError('Data must be of type pandas.DataFrame')
