@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "gaiadr3-analysis"
+version = "0.1.0"
+description = "Tools for Gaia DR3 astrophysical data analysis"
+authors = [
+    { name = "Matthew McGuire" },
+    { name = "Nakia McKay" },
+    { name = "Jennifer Farrell" },
+]
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Astronomy",
+]
+dependencies = [
+    "astropy>=5.0",
+    "numpy>=1.22",
+    "pandas>=1.4",
+    "matplotlib>=3.5",
+    "scipy>=1.8",
+    "astroquery>=0.4",
+]
+
+[tool.setuptools.packages.find]
+exclude = ["tests*", "docs*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+verbose = true
+
+[tool.setuptools]
+include-package-data = true
