@@ -88,3 +88,106 @@ def pmra_vs_pmdec(df: pd.DataFrame, xlim:float=None, ylim:float=None, color: str
     if ylim is not None:
         plt.ylim(ylim)
     plt.show()
+
+def get_distance(parallax):
+    """Convert parallax (mas) to distance (pc)
+
+    Args:
+        parallax (float): Parallax in milliarcseconds
+
+    Returns:
+        float: Distance in parsecs
+    """
+    return 1 / (parallax / 1000)
+
+
+def get_magnitude(phot_g_mean_mag, distance):
+    """Convert apparent magnitude to absolute magnitude
+
+    Args:
+        phot_g_mean_mag (float): G-band apparent magnitude
+        distance (float): Distance in parsecs
+
+    Returns:
+        float: Absolute magnitude
+    """
+    return phot_g_mean_mag - 5 * np.log10(distance / 10)
+
+
+def get_bprp(phot_bp_mean_mag, phot_rp_mean_mag):
+    """Calculate BP-RP colour index
+
+    Args:
+        phot_bp_mean_mag (float): BP-band apparent magnitude
+        phot_rp_mean_mag (float): RP-band apparent magnitude
+
+    Returns:
+        float: BP-RP colour index
+    """
+    return phot_bp_mean_mag - phot_rp_mean_mag
+
+
+def plot_hr_diagram(df):
+    """Plot an HR diagram from a Gaia dataframe.
+
+    Args:
+        df (pandas.dataframe): Gaia data containing parallax,
+            phot_g_mean_mag, phot_bp_mean_mag, phot_rp_mean_mag.
+    """
+    df = df.dropna(subset=["parallax", "phot_g_mean_mag", "phot_bp_mean_mag", "phot_rp_mean_mag"])
+
+    magnitude = [get_magnitude(row["phot_g_mean_mag"], get_distance(row["parallax"])) for _, row in df.iterrows()]
+    bprp = [get_bprp(row["phot_bp_mean_mag"], row["phot_rp_mean_mag"]) for _, row in df.iterrows()]
+
+    plt.style.use("dark_background")
+    plt.scatter(bprp, magnitude, c="white", s=1)
+    plt.xlabel("BP - RP")
+    plt.ylabel("Absolute Magnitude")
+    plt.title("HR Diagram")
+    plt.gca().invert_yaxis()
+    plt.show()
+
+def hist(dists, bin_num, parallax=False):
+    #Magnitude, Y-Values
+
+    #Adjust if dist given in parallax
+    if parallax:
+        dists = (1000/dists)
+
+    plt.title(name)
+    plt.hist(dists, bins=bin_num)
+
+    plt.xlabel(name)
+    plt.ylabel('Stars per bin')
+    plt.show()
+
+def gaussian(x, A, sigma, mu):
+    return A*(1/(sigma * np.sqrt(2*np.pi)) * np.exp(-1*(x - mu)**2 / (2*sigma**2)))
+
+def fittedHist(dists, bin_num=50, range=[-500,500],parallax=False):
+    #Magnitude, Y-Values
+    if parallax:
+        dists = (1000/dists)
+
+    median = x.median()
+    std = x.std()
+
+    print(name+": "+ str(median))
+    plt.title("Starcount Histogram: "+name)
+
+    h_1d_output = plt.hist(x, bins=bin_num)
+    x_plot = np.linspace(range[0],range[1], 300)
+    x_1d_fit = (h_1d_output[1][:-1]+h_1d_output[1][1:])/2
+    y_1d_fit = h_1d_output[0]
+    fit = curve_fit(gaussian, x_1d_fit, y_1d_fit, p0 = [55, std, median])
+    print("Standard Deviation: "+str(x.std()))
+
+    #Fix printing this
+    #print(fit)
+    plt.plot(x_plot, gaussian(x_plot, *fit[0]), label ='Line of Best Fit')
+
+    plt.xlim(range[0], range[1])
+    plt.xlabel(name)
+    plt.ylabel('Stars per bin')
+    plt.legend()
+    plt.show()
