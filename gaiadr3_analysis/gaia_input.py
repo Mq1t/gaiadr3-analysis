@@ -23,7 +23,7 @@ def query_by_adql(adql_query):
     job = Gaia.launch_job(adql_query)
     return job.get_results().to_pandas()
 
-def query_by_datalink(gaia_ids:[int], jd:bool = True, reject_flags:bool = False):
+def query_by_datalink(gaia_ids:[int], release:str ='Gaia DR3', retrieval:str = 'EPOCH_PHOTOMETRY', structure:str = 'INDIVIDUAL'):
     """Query Gaia with an Datalink query
 
     Args:
@@ -32,7 +32,8 @@ def query_by_datalink(gaia_ids:[int], jd:bool = True, reject_flags:bool = False)
     Returns:
         pandas.DataFrame: Query results
     """
-    dl_query = Gaia.load_data(ids=gaia_ids, data_release='Gaia DR3', retrieval_type='EPOCH_PHOTOMETRY', data_structure='INDIVIDUAL')
+    
+    dl_query = Gaia.load_data(ids=gaia_ids, data_release=release, retrieval_type=retrieval, data_structure=structure)
     return dl_query
     
 print(len(lc1))
