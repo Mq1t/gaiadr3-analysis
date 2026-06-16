@@ -28,6 +28,9 @@ def query_by_datalink(gaia_ids:[int], release:str ='Gaia DR3', retrieval:str = '
 
     Args:
         gaia_id ([int]): Gaia ID of the star targetted by the query.
+        release (str): Data release version. Default is 'Gaia DR3'.
+        retrieval (str): Retrieval type. Default is 'EPOCH_PHOTOMETRY'.
+        structture (str): Data structure. Default is 'INDIVIDUAL'.
 
     Returns:
         pandas.DataFrame: Query results
