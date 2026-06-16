@@ -23,7 +23,47 @@ def query_by_adql(adql_query):
     job = Gaia.launch_job(adql_query)
     return job.get_results().to_pandas()
 
+def query_by_datalink(gaia_ids:int|list[int], release:str ='Gaia DR3', retrieval:str = 'EPOCH_PHOTOMETRY', structure:str = 'INDIVIDUAL'):
+    """Query Gaia with an Datalink query
 
+    Args:
+        gaia_id ([int] | int): Gaia ID of the star targetted by the query.
+        release (str): Data release version. Default is 'Gaia DR3'.
+        retrieval (str): Retrieval type. Default is 'EPOCH_PHOTOMETRY'.
+        structture (str): Data structure. Default is 'INDIVIDUAL'.
+
+    Returns:
+        dict: Query results. keys are Gaia_IDs, and the values are the Epoch photmetry data in a Pandas dataframe.
+    """
+    # Normalize input
+    if isinstance(gaia_ids, int):
+        gaia_ids = [gaia_ids]
+
+    dl_query = Gaia.load_data(ids=gaia_ids, data_release=release, retrieval_type=retrieval, data_structure=structure)
+    df_dict = {}
+    retrieved_ids = set()
+    
+    for key, value in dl_query.items():
+        #Add ID to retrieved list.
+        retrieved_ids.add(key)
+        
+        #Removes bulk in the name, sets it to be just the gaia ID.
+        #Formats the values to a pandas dataframe.
+        gaia_id = int(key[26:-4])
+
+        #Convert first Datalink product to pandas
+        df = value[0].to_table().to_pandas()
+
+        df_dict[gaia_id] = df
+
+    #Print IDs not retrieved.
+    if(len(retrieved_ids) <= 0):
+        print("No ID's could be retrieved. (no Epoch Photometry data).")
+    else: 
+        print(f"ID's could not be retrieved. (no Epoch Photometry data): \n{(set(gaia_ids) - retrieved_ids)}")
+    
+    return df_dict
+    
 def load_csv(file_path):
     """Load a Gaia CSV file
 
