@@ -23,6 +23,19 @@ def query_by_adql(adql_query):
     job = Gaia.launch_job(adql_query)
     return job.get_results().to_pandas()
 
+def query_by_datalink(gaia_ids:[int], jd:bool = True, reject_flags:bool = False):
+    """Query Gaia with an Datalink query
+
+    Args:
+        gaia_id ([int]): Gaia ID of the star targetted by the query.
+
+    Returns:
+        pandas.DataFrame: Query results
+    """
+    dl_query = Gaia.load_data(ids=gaia_ids, data_release='Gaia DR3', retrieval_type='EPOCH_PHOTOMETRY', data_structure='INDIVIDUAL')
+    return dl_query
+    
+print(len(lc1))
 
 def load_csv(file_path):
     """Load a Gaia CSV file
