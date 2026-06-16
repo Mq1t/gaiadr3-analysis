@@ -37,10 +37,9 @@ def query_by_datalink(gaia_ids:[int], release:str ='Gaia DR3', retrieval:str = '
     """
     
     dl_query = Gaia.load_data(ids=gaia_ids, data_release=release, retrieval_type=retrieval, data_structure=structure)
+    dl_query = list(dl_query.values())[0][0].to_table().to_pandas()
     return dl_query
     
-print(len(lc1))
-
 def load_csv(file_path):
     """Load a Gaia CSV file
 
