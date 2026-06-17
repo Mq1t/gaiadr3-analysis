@@ -5,6 +5,7 @@ from scipy.optimize import curve_fit
 from astropy.timeseries import LombScargle
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from PyAstronomy.pyTiming import pyPDM
 
 def phase(t, T_0, P):
     """
@@ -251,5 +252,49 @@ def lomb_scargle(t: pd.DataFrame = None, mag: pd.DataFrame = None, period_range:
     
     return best_period_days
 
+def pdm(t: pd.DataFrame, mag: pd.DataFrame, bins:int|float = 50, covers:int = 3, freq_range:list[int|float] = [0.01, 10.0, 0.001], plot = False):
+    """
+    Compute a Lomb-Scargle periodogram and optionally plot the result.
 
-#Add PDM here
+    Args:
+        t (array-like): Time values (JD or relative).
+        mag (array-like): Magnitudes or fluxes corresponding to 't'. 
+        bins (int, optional): Number of bins to be used in the PDM analysis. Defaults to 50.
+        covers (int, optional): Number of covers to be uesd in the PDM analysis. Defaults to 3.
+        freq_range (list[float], optional): Frequency range of the PDM analysis, defaults to [0.01, 10.0, 0.001], 
+            where the third value is increment.
+        plot (bool, optional): If True, display the PDM analysis as a plot. Defaults to False.
+
+    Returns:
+        float: Best fit period in days (float).
+    """
+    # Define trial frequencies
+    fmin = freq_range[0]
+    fmax = freq_range[1]
+    dfreq = freq_range[2]
+    
+    S = pyPDM.Scanner(minVal=fmin, maxVal=fmax, dVal=dfreq, mode="frequency")
+    P = pyPDM.PyPDM(t, mag)
+
+    frequencies, theta = P.pdmEquiBinCover(
+        bins,     # number of bins
+        covers,      # covers
+        S
+    )
+
+    best_frequency = frequencies[np.argmin(theta)]
+    best_period = 1.0 / best_frequency
+
+    print("Best period =", best_period, "days")
+
+    if plot == True:
+        plt.figure(figsize=(8,5))
+        plt.plot(1/frequencies, theta, 'k-')
+        plt.axvline(best_period, c='red', label=f"Best Period: {best_period:6f} days")
+        plt.xlabel("Period (days)")
+        plt.ylabel("Theta")
+        plt.gca().invert_xaxis()
+        plt.legend()
+        plt.show()
+    
+    return best_period
