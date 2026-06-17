@@ -11,8 +11,19 @@ Usage:
 import pandas as pd
 from astroquery.gaia import Gaia
 
+def gaia_login_prompt():
+    """Prompt user to optionally log in to Gaia archive."""
+    if input("Log in to Gaia archive? (y/n): ").strip().lower() == "y":
+        user = input("Gaia username: ").strip()
+        password = input("Gaia password: ").strip()
+        try:
+            Gaia.login(user=user, password=password)
+            print("✓ Logged in to Gaia archive.")
+        except Exception as e:
+            print(f"✗ Login failed: {e}")
+
 def query_by_adql(adql_query):
-    """Query Gaia with an ADQL query
+    """Query Gaia with an ADQL query.
 
     Args:
         adql_query (str): ADQL query targeting a Gaia table
@@ -23,45 +34,103 @@ def query_by_adql(adql_query):
     job = Gaia.launch_job(adql_query)
     return job.get_results().to_pandas()
 
-def query_by_datalink(gaia_ids:int|list[int], release:str ='Gaia DR3', retrieval:str = 'EPOCH_PHOTOMETRY', structure:str = 'INDIVIDUAL'):
-    """Query Gaia with an Datalink query
+def _gaia_login_prompt():
+    """Prompt user to optionally log in to Gaia archive."""
+    if input("Log in to Gaia archive? (y/n): ").strip().lower() == "y":
+        user = input("Gaia username: ").strip()
+        password = input("Gaia password: ").strip()
+        try:
+            Gaia.login(user=user, password=password)
+            print("✓ Logged in to Gaia archive.")
+        except Exception as e:
+            print(f"✗ Login failed: {e}")
 
-    Args:
-        gaia_id ([int] | int): Gaia ID of the star targetted by the query.
-        release (str): Data release version. Default is 'Gaia DR3'.
-        retrieval (str): Retrieval type. Default is 'EPOCH_PHOTOMETRY'.
-        structture (str): Data structure. Default is 'INDIVIDUAL'.
+
+def get_dataframe():
+    """Run the input menu and return a Gaia dataframe.
 
     Returns:
-        dict: Query results. keys are Gaia_IDs, and the values are the Epoch photmetry data in a Pandas dataframe.
+        pandas.DataFrame: Final dataframe for downstream use.
     """
-    # Normalize input
+    _gaia_login_prompt()
+
+    print("\n1. ADQL query\n2. CSV file\n3. Datalink (Epoch Photometry)")
+    choice = input("Choose input method (1/2/3): ").strip()
+
+    if choice == "1":
+        adql_query = input("ADQL query: ").strip()
+        df = query_by_adql(adql_query)
+
+    elif choice == "2":
+        filepath = input("CSV path: ").strip()
+        df = load_csv(filepath)
+
+    elif choice == "3":
+        raw = input("Gaia source ID(s), comma-separated: ").strip()
+        gaia_ids = [int(i.strip()) for i in raw.split(",")]
+        results = query_by_datalink(gaia_ids)
+        if results:
+            first_id = next(iter(results))
+            df = results[first_id]
+            print(f"Returning epoch photometry for ID {first_id}. Full dict available via query_by_datalink().")
+        else:
+            return None
+
+    else:
+        print("Invalid choice.")
+        return None
+
+    if input("Apply a filter? (y/n): ").strip().lower() == "y":
+        df = apply_filter(df)
+
+    return df
+
+
+def query_by_adql(adql_query):
+    """Query Gaia with an ADQL query.
+
+    Args:
+        adql_query (str): ADQL query targeting a Gaia table
+
+    Returns:
+        pandas.DataFrame: Query results
+    """
+    job = Gaia.launch_job(adql_query)
+    return job.get_results().to_pandas()
+
+
+def query_by_datalink(gaia_ids: int | list[int], release: str = 'Gaia DR3', retrieval: str = 'EPOCH_PHOTOMETRY', structure: str = 'INDIVIDUAL'):
+    """Query Gaia with a Datalink query.
+
+    Args:
+        gaia_ids ([int] | int): Gaia ID(s) of the star(s) targeted by the query.
+        release (str): Data release version. Default is 'Gaia DR3'.
+        retrieval (str): Retrieval type. Default is 'EPOCH_PHOTOMETRY'.
+        structure (str): Data structure. Default is 'INDIVIDUAL'.
+
+    Returns:
+        dict: Query results. Keys are Gaia IDs, values are epoch photometry DataFrames.
+    """
     if isinstance(gaia_ids, int):
         gaia_ids = [gaia_ids]
 
     dl_query = Gaia.load_data(ids=gaia_ids, data_release=release, retrieval_type=retrieval, data_structure=structure)
     df_dict = {}
     retrieved_ids = set()
-    
+
     for key, value in dl_query.items():
-        #Add ID to retrieved list.
         retrieved_ids.add(key)
-        
-        #Removes bulk in the name, sets it to be just the gaia ID.
-        #Formats the values to a pandas dataframe.
         gaia_id = int(key[26:-4])
-
-        #Convert first Datalink product to pandas
         df = value[0].to_table().to_pandas()
-
         df_dict[gaia_id] = df
 
-    #Print IDs not retrieved.
-    if(len(retrieved_ids) <= 0):
-        print("No ID's could be retrieved. (no Epoch Photometry data).")
-    else: 
-        print(f"ID's could not be retrieved. (no Epoch Photometry data): \n{(set(gaia_ids) - retrieved_ids)}")
-    
+    if len(retrieved_ids) <= 0:
+        print("No IDs could be retrieved. (no Epoch Photometry data).")
+    else:
+        not_retrieved = set(gaia_ids) - retrieved_ids
+        if not_retrieved:
+            print(f"IDs not retrieved (no Epoch Photometry data):\n{not_retrieved}")
+
     return df_dict
     
 def load_csv(file_path):
@@ -103,8 +172,10 @@ def get_dataframe():
     Returns:
         pandas.DataFrame: Final dataframe for downstream use.
     """
-    print("\n1. ADQL query\n2. CSV file")
-    choice = input("Choose input method (1/2): ").strip()
+    _gaia_login_prompt()
+
+    print("\n1. ADQL query\n2. CSV file\n3. Datalink (Epoch Photometry)")
+    choice = input("Choose input method (1/2/3): ").strip()
 
     if choice == "1":
         adql_query = input("ADQL query: ").strip()
@@ -113,6 +184,17 @@ def get_dataframe():
     elif choice == "2":
         filepath = input("CSV path: ").strip()
         df = load_csv(filepath)
+
+    elif choice == "3":
+        raw = input("Gaia source ID(s), comma-separated: ").strip()
+        gaia_ids = [int(i.strip()) for i in raw.split(",")]
+        results = query_by_datalink(gaia_ids)
+        if results:
+            first_id = next(iter(results))
+            df = results[first_id]
+            print(f"Returning epoch photometry for ID {first_id}. Full dict available via query_by_datalink().")
+        else:
+            return None
 
     else:
         print("Invalid choice.")
