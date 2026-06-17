@@ -252,3 +252,4 @@ def lomb_scargle(t: pd.DataFrame = None, mag: pd.DataFrame = None, period_range:
     return best_period_days
 
 
+#Add PDM here
