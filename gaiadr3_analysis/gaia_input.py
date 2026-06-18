@@ -39,11 +39,11 @@ def get_dataframe():
     if choice == "1":
         adql_query = input("ADQL query: ").strip()
         if input("Save file to CSV? (y/n): ").strip().lower() == "y":
-            f_name = input("Enter file name or path. (Press enter for default): "):
-                if(f_name is not None):
-                    df = query_by_adql(adql_query, save_file = True, file_name = f_name)
-                else:
-                    df = query_by_adql(adql_query, save_file = True)
+            f_name = input("Enter file name or path. (Press enter for default): ")
+            if(f_name is not None):
+                df = query_by_adql(adql_query, save_file = True, file_name = f_name)
+            else:
+                df = query_by_adql(adql_query, save_file = True)
         else:
             df = query_by_adql(adql_query)
         
@@ -57,11 +57,11 @@ def get_dataframe():
         results = query_by_datalink(gaia_ids)
 
         if input("Save file to CSV? (y/n): ").strip().lower() == "y":
-            f_name = input("Enter folder name or path. (Press enter for default): "):
-                if(f_name is not None):
-                    results = query_by_datalink(gaia_ids, save_file = True, folder_name = f_name)
-                else:
-                    results = query_by_datalink(gaia_ids, save_file = True)
+            f_name = input("Enter folder name or path. (Press enter for default): ")
+            if(f_name is not None):
+                results = query_by_datalink(gaia_ids, save_file = True, folder_name = f_name)
+            else:
+                results = query_by_datalink(gaia_ids, save_file = True)
         else:
             results = query_by_datalink(gaia_ids)
 
