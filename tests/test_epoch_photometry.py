@@ -1,7 +1,7 @@
 """Tests for epoch_photometry.py
 
 Tests cover the phase calculation function and input validation
-for lightcurve and lomb_scargle. Matplotlib rendering is patched
+for lightcurve, lomb_scargle, and pdm. Matplotlib rendering is patched
 out so tests run headlessly without a display.
 """
 
@@ -9,7 +9,7 @@ import pytest
 import numpy as np
 import pandas as pd
 from unittest.mock import patch
-from gaiadr3_analysis.epoch_photometry import phase, lightcurve, lomb_scargle
+from gaiadr3_analysis.epoch_photometry import phase, lightcurve, lomb_scargle, pdm
 
 # Fixtures
 @pytest.fixture
@@ -34,7 +34,7 @@ def photometry_df():
 
 @pytest.fixture
 def time_series():
-    """Returns a simple time and magnitude array for lomb_scargle tests.
+    """Returns a simple time and magnitude array for lomb_scargle and pdm tests.
 
     Returns:
         tuple: (t, mag) as pandas Series with 50 evenly spaced points.
@@ -42,6 +42,7 @@ def time_series():
     t = pd.Series(np.linspace(0, 50, 50))
     mag = pd.Series(np.sin(2 * np.pi * t / 5.0))
     return t, mag
+
 
 # phase
 def test_phase_output_in_range():
@@ -83,6 +84,7 @@ def test_phase_handles_array_input():
     result = phase(t, T_0=0.0, P=2.0)
 
     assert len(result) == 4
+
 
 # lightcurve
 def test_lightcurve_raises_type_error_for_non_dataframe():
@@ -141,6 +143,7 @@ def test_lightcurve_runs_with_xlims_and_ylims(photometry_df):
     with patch("matplotlib.pyplot.show"):
         lightcurve(photometry_df, xlims=(0, 100), ylims=(11, 14))
 
+
 # lomb_scargle
 def test_lomb_scargle_returns_float(time_series):
     """Checks that lomb_scargle returns a float value.
@@ -190,3 +193,59 @@ def test_lomb_scargle_plot_runs_without_error(time_series):
     t, mag = time_series
     with patch("matplotlib.pyplot.show"):
         lomb_scargle(t, mag, plot=True)
+
+
+# pdm
+def test_pdm_returns_float(time_series):
+    """Checks that pdm returns a float value.
+
+    Args:
+        time_series (tuple): Sample (t, mag) time series fixture.
+    """
+    t, mag = time_series
+    result = pdm(t, mag)
+
+    assert isinstance(result, float)
+
+def test_pdm_returns_positive_period(time_series):
+    """Checks that pdm returns a positive period value.
+
+    Args:
+        time_series (tuple): Sample (t, mag) time series fixture.
+    """
+    t, mag = time_series
+    result = pdm(t, mag)
+
+    assert result > 0.0
+
+def test_pdm_custom_freq_range(time_series):
+    """Checks that pdm respects a custom freq_range and returns a period within it.
+
+    Args:
+        time_series (tuple): Sample (t, mag) time series fixture.
+    """
+    t, mag = time_series
+    result = pdm(t, mag, freq_range=[0.1, 2.0, 0.01])
+
+    assert result >= 1 / 2.0
+
+def test_pdm_plot_runs_without_error(time_series):
+    """Checks that pdm runs without error when plot is True.
+
+    Args:
+        time_series (tuple): Sample (t, mag) time series fixture.
+    """
+    t, mag = time_series
+    with patch("matplotlib.pyplot.show"):
+        pdm(t, mag, plot=True)
+
+def test_pdm_custom_bins_and_covers(time_series):
+    """Checks that pdm accepts custom bins and covers without error.
+
+    Args:
+        time_series (tuple): Sample (t, mag) time series fixture.
+    """
+    t, mag = time_series
+    result = pdm(t, mag, bins=30, covers=2)
+
+    assert isinstance(result, float)
