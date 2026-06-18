@@ -38,8 +38,15 @@ def get_dataframe():
 
     if choice == "1":
         adql_query = input("ADQL query: ").strip()
-        df = query_by_adql(adql_query)
-
+        if input("Save file to CSV? (y/n): ").strip().lower() == "y":
+            f_name = input("Enter file name or path. (Press enter for default): "):
+                if(f_name is not None):
+                    df = query_by_adql(adql_query, save_file = True, file_name = f_name)
+                else:
+                    df = query_by_adql(adql_query, save_file = True)
+        else:
+            df = query_by_adql(adql_query)
+        
     elif choice == "2":
         filepath = input("CSV path: ").strip()
         df = load_csv(filepath)
@@ -48,6 +55,17 @@ def get_dataframe():
         raw = input("Gaia source ID(s), comma-separated: ").strip()
         gaia_ids = [int(i.strip()) for i in raw.split(",")]
         results = query_by_datalink(gaia_ids)
+
+        if input("Save file to CSV? (y/n): ").strip().lower() == "y":
+            f_name = input("Enter folder name or path. (Press enter for default): "):
+                if(f_name is not None):
+                    results = query_by_datalink(gaia_ids, save_file = True, folder_name = f_name)
+                else:
+                    results = query_by_datalink(gaia_ids, save_file = True)
+        else:
+            results = query_by_datalink(gaia_ids)
+
+        #Note, I think we should remove this and just return results.
         if results:
             first_id = next(iter(results))
             df = results[first_id]
@@ -65,20 +83,33 @@ def get_dataframe():
     return df
 
 
-def query_by_adql(adql_query):
+def query_by_adql(adql_query, save_file:bool = False, file_name: str = "ADQL_query.csv"):
     """Query Gaia with an ADQL query.
 
     Args:
         adql_query (str): ADQL query targeting a Gaia table
+        save_file (bool, optional): If True, save file to CSV.
+        file_name (str, optional): Name of the file, only applies if save_file is True. 
 
     Returns:
         pandas.DataFrame: Query results
     """
     job = Gaia.launch_job(adql_query)
+
+    if(save_file == True):
+        df.to_csv(file_name, index=False)
+    
     return job.get_results().to_pandas()
 
 
-def query_by_datalink(gaia_ids: int | list[int], release: str = 'Gaia DR3', retrieval: str = 'EPOCH_PHOTOMETRY', structure: str = 'INDIVIDUAL'):
+def query_by_datalink(
+    gaia_ids: int | list[int], 
+    release: str = 'Gaia DR3', 
+    retrieval: str = 'EPOCH_PHOTOMETRY', 
+    structure: str = 'INDIVIDUAL',
+    save_file:bool = False, 
+    fodler_name: str = "DL_query"
+):
     """Query Gaia with a Datalink query.
 
     Args:
@@ -86,6 +117,8 @@ def query_by_datalink(gaia_ids: int | list[int], release: str = 'Gaia DR3', retr
         release (str): Data release version. Default is 'Gaia DR3'.
         retrieval (str): Retrieval type. Default is 'EPOCH_PHOTOMETRY'.
         structure (str): Data structure. Default is 'INDIVIDUAL'.
+        save_file (bool, optional): If True, save file to CSV.
+        folder_name (str, optional): Name of the folder, only applies if save_file is True. 
 
     Returns:
         dict: Query results. Keys are Gaia IDs, values are epoch photometry DataFrames.
@@ -103,12 +136,18 @@ def query_by_datalink(gaia_ids: int | list[int], release: str = 'Gaia DR3', retr
         df = value[0].to_table().to_pandas()
         df_dict[gaia_id] = df
 
+        #Creates a folder named {folder_name} that has all the CSV files of the data where each 
+        if(save_file == True):
+            file_path = Path(f"{folder_name}/{str(gaia_id)}.csv")
+            df.to_csv(folder_path, index=False)
+
     if len(retrieved_ids) <= 0:
         print("No IDs could be retrieved. (no Epoch Photometry data).")
     else:
         not_retrieved = set(gaia_ids) - retrieved_ids
         if not_retrieved:
             print(f"IDs not retrieved (no Epoch Photometry data):\n{not_retrieved}")
+
 
     return df_dict
     
@@ -122,7 +161,6 @@ def load_csv(file_path):
         pandas.dataframe: Loaded data
     """
     return pd.read_csv(file_path)
-
 
 def apply_filter(df):
     """Filter a dataframe using a pandas query expression
