@@ -306,11 +306,14 @@ def test_fitted_hist_runs_without_error(distances):
     with patch("matplotlib.pyplot.show"):
         fittedHist(distances, range=[50, 400])
 
-def test_fitted_hist_runs_with_parallax_conversion(distances):
+def test_fitted_hist_runs_with_parallax_conversion():
     """Checks that fittedHist runs without error when parallax conversion is enabled.
 
-    Args:
-        distances (pd.Series): Sample distance values fixture.
+    Uses a larger synthetic parallax dataset centred around 5 mas so that
+    curve_fit has a well-shaped histogram to converge on after 1000/parallax
+    conversion.
     """
+    rng = np.random.default_rng(42)
+    parallax_values = pd.Series(rng.normal(loc=5.0, scale=0.5, size=200))
     with patch("matplotlib.pyplot.show"):
-        fittedHist(distances, parallax=True, range=[0, 500])
+        fittedHist(parallax_values, parallax=True, range=[100, 400])
