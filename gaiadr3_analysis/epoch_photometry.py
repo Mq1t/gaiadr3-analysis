@@ -22,7 +22,7 @@ def phase(t, T_0, P):
     return ((t-T_0)/P) % 1
 
 #Plot G, Bp and Rp magnitude light curves in time.
-def lightcurve(df:pd.DataFrame, title:str='Flux Vs. Time', overplot:bool=True, rejectflags: bool=False, period:float=None, xlims:tuple[int|float, int|float]=None, ylims:tuple[int|float, int|float]=None):
+def lightcurve(df:pd.DataFrame, title:str='Flux Vs. Time', overplot:bool=True, rejectflags: bool=False, period:float=None, xlims:tuple[int|float, int|float]=None, ylims:tuple[int|float, int|float]=None, plot_title: str | None = None, save_plot: bool = False):
     """
     Plot G, Bp and Rp magnitude light curves in time.
 
@@ -89,6 +89,8 @@ def lightcurve(df:pd.DataFrame, title:str='Flux Vs. Time', overplot:bool=True, r
     y_bp = bp_df[bp]
     y_rp = rp_df[rp]
 
+    final_title = plot_title if plot_title is not None else title
+
     if overplot is True:
         plt.xlabel(x_label)
         plt.ylabel("Band (app mag)")
@@ -145,12 +147,19 @@ def lightcurve(df:pd.DataFrame, title:str='Flux Vs. Time', overplot:bool=True, r
                 ax.set_ylim(xlims[0], xlims[1])
 
     plt.tight_layout()
+
+    if save_plot:
+        safe_name = final_title.replace(" ", "_")
+        filename = f"{safe_name}.pdf"
+        plt.savefig(filename, dpi=300, bbox_inches='tight')
+        print(f"Plot saved as {filename}")
+
     plt.show()
 
 #t is times in julian days. If time is given in non-julian date already then jd = False when calling the function.
 #t is expected to be 'g_transit_time'
 #mag is expected to be 'g_transit_mag'
-def lomb_scargle(t: pd.DataFrame = None, mag: pd.DataFrame = None, period_range: list[float] = None, xlims: list[float] = None, jd: bool=True, plot:bool=False):
+def lomb_scargle(t: pd.DataFrame = None, mag: pd.DataFrame = None, title:str='Lomb-Scargle Periodogram', period_range: list[float] = None, xlims: list[float] = None, jd: bool=True, plot:bool=False, plot_title: str | None = None, save_plot: bool = False):
     """
     Compute a Lomb-Scargle periodogram and optionally plot the result.
 
@@ -197,6 +206,8 @@ def lomb_scargle(t: pd.DataFrame = None, mag: pd.DataFrame = None, period_range:
         minimum_frequency=1/period_range[1],    # max period
         maximum_frequency=1/period_range[0]  # min period
     )
+
+    final_title = plot_title if plot_title is not None else title
 
     #Convert frequency to period
     period_days = 1/frequency
@@ -248,11 +259,17 @@ def lomb_scargle(t: pd.DataFrame = None, mag: pd.DataFrame = None, period_range:
         sub_ax.set_xlabel("Period (hours)")
         sub_ax.grid(True)
     
+    if save_plot:
+        safe_name = final_title.replace(" ", "_")
+        filename = f"{safe_name}.pdf"
+        plt.savefig(filename, dpi=300, bbox_inches='tight')
+        print(f"Plot saved as {filename}")
+
         plt.show()
     
     return best_period_days
 
-def pdm(t: pd.DataFrame, mag: pd.DataFrame, bins:int|float = 50, covers:int = 3, freq_range:list[int|float] = [0.01, 10.0, 0.001], plot = False):
+def pdm(t: pd.DataFrame, mag: pd.DataFrame, title:str='Phase Dispersion Minimization', bins:int|float = 50, covers:int = 3, freq_range:list[int|float] = [0.01, 10.0, 0.001], plot = False, plot_title: str | None = None, save_plot: bool = False):
     """
     Compute a Lomb-Scargle periodogram and optionally plot the result.
 
@@ -287,6 +304,8 @@ def pdm(t: pd.DataFrame, mag: pd.DataFrame, bins:int|float = 50, covers:int = 3,
 
     print("Best period =", best_period, "days")
 
+    final_title = plot_title if plot_title is not None else title
+
     if plot == True:
         plt.figure(figsize=(8,5))
         plt.plot(1/frequencies, theta, 'k-')
@@ -295,6 +314,13 @@ def pdm(t: pd.DataFrame, mag: pd.DataFrame, bins:int|float = 50, covers:int = 3,
         plt.ylabel("Theta")
         plt.gca().invert_xaxis()
         plt.legend()
+
+    if save_plot:
+        safe_name = final_title.replace(" ", "_")
+        filename = f"{safe_name}.pdf"
+        plt.savefig(filename, dpi=300, bbox_inches='tight')
+        print(f"Plot saved as {filename}")
+
         plt.show()
     
     return best_period
