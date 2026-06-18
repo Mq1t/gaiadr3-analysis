@@ -1,8 +1,9 @@
 """gaia_input.py
 
-Load GAIA data into a pandas DataFrame via two input methods:
-    1. ADQL query 
+Load GAIA data into a pandas DataFrame via three input methods:
+    1. ADQL query
     2. CSV file upload
+    3. Datalink (Epoch Photometry)
 
 Usage:
     $ python gaia_input.py
@@ -18,32 +19,9 @@ def gaia_login_prompt():
         password = input("Gaia password: ").strip()
         try:
             Gaia.login(user=user, password=password)
-            print("✓ Logged in to Gaia archive.")
+            print("Logged in to Gaia archive.")
         except Exception as e:
-            print(f"✗ Login failed: {e}")
-
-def query_by_adql(adql_query):
-    """Query Gaia with an ADQL query.
-
-    Args:
-        adql_query (str): ADQL query targeting a Gaia table
-
-    Returns:
-        pandas.DataFrame: Query results
-    """
-    job = Gaia.launch_job(adql_query)
-    return job.get_results().to_pandas()
-
-def _gaia_login_prompt():
-    """Prompt user to optionally log in to Gaia archive."""
-    if input("Log in to Gaia archive? (y/n): ").strip().lower() == "y":
-        user = input("Gaia username: ").strip()
-        password = input("Gaia password: ").strip()
-        try:
-            Gaia.login(user=user, password=password)
-            print("✓ Logged in to Gaia archive.")
-        except Exception as e:
-            print(f"✗ Login failed: {e}")
+            print(f"Login failed: {e}")
 
 
 def get_dataframe():
@@ -52,7 +30,8 @@ def get_dataframe():
     Returns:
         pandas.DataFrame: Final dataframe for downstream use.
     """
-    _gaia_login_prompt()
+    
+    gaia_login_prompt()
 
     print("\n1. ADQL query\n2. CSV file\n3. Datalink (Epoch Photometry)")
     choice = input("Choose input method (1/2/3): ").strip()
@@ -72,7 +51,7 @@ def get_dataframe():
         if results:
             first_id = next(iter(results))
             df = results[first_id]
-            print(f"Returning epoch photometry for ID {first_id}. Full dict available via query_by_datalink().")
+            print(f"Returning epoch photometry for ID {first_id}. Full dictionary available via query_by_datalink().")
         else:
             return None
 
@@ -164,46 +143,6 @@ def apply_filter(df):
     except Exception as e:
         print(f"Invalid filter: {e}")
         return df
-
-
-def get_dataframe():
-    """Run the input menu and return a Gaia dataframe.
-
-    Returns:
-        pandas.DataFrame: Final dataframe for downstream use.
-    """
-    _gaia_login_prompt()
-
-    print("\n1. ADQL query\n2. CSV file\n3. Datalink (Epoch Photometry)")
-    choice = input("Choose input method (1/2/3): ").strip()
-
-    if choice == "1":
-        adql_query = input("ADQL query: ").strip()
-        df = query_by_adql(adql_query)
-
-    elif choice == "2":
-        filepath = input("CSV path: ").strip()
-        df = load_csv(filepath)
-
-    elif choice == "3":
-        raw = input("Gaia source ID(s), comma-separated: ").strip()
-        gaia_ids = [int(i.strip()) for i in raw.split(",")]
-        results = query_by_datalink(gaia_ids)
-        if results:
-            first_id = next(iter(results))
-            df = results[first_id]
-            print(f"Returning epoch photometry for ID {first_id}. Full dict available via query_by_datalink().")
-        else:
-            return None
-
-    else:
-        print("Invalid choice.")
-        return None
-
-    if input("Apply a filter? (y/n): ").strip().lower() == "y":
-        df = apply_filter(df)
-
-    return df
 
 if __name__ == "__main__":
     df = get_dataframe()
