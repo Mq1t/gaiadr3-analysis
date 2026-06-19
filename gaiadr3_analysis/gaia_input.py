@@ -41,7 +41,7 @@ def get_dataframe():
         if input("Save file to CSV? (y/n): ").strip().lower() == "y":
             f_name = input("Enter file name or path. (Press enter for default): ")
             if(f_name is not None):
-                df = query_by_adql(adql_query, save_file = True, file_name = f_name)
+                df = query_by_adql(adql_query, save_file = True, file_name = f_name+".csv")
             else:
                 df = query_by_adql(adql_query, save_file = True)
         else:
@@ -96,10 +96,12 @@ def query_by_adql(adql_query, save_file:bool = False, file_name: str = "ADQL_que
     """
     job = Gaia.launch_job(adql_query)
 
+    df = job.get_results().to_pandas()
+
     if(save_file == True):
         df.to_csv(file_name, index=False)
     
-    return job.get_results().to_pandas()
+    return df
 
 
 def query_by_datalink(
@@ -108,7 +110,7 @@ def query_by_datalink(
     retrieval: str = 'EPOCH_PHOTOMETRY', 
     structure: str = 'INDIVIDUAL',
     save_file:bool = False, 
-    fodler_name: str = "DL_query"
+    folder_name: str = "DL_query"
 ):
     """Query Gaia with a Datalink query.
 
@@ -136,10 +138,9 @@ def query_by_datalink(
         df = value[0].to_table().to_pandas()
         df_dict[gaia_id] = df
 
-        #Creates a folder named {folder_name} that has all the CSV files of the data where each 
         if(save_file == True):
-            file_path = Path(f"{folder_name}/{str(gaia_id)}.csv")
-            df.to_csv(folder_path, index=False)
+            file_path = f"{folder_name}/{str(gaia_id)}.csv"
+            df.to_csv(file_path, index=False)
 
     if len(retrieved_ids) <= 0:
         print("No IDs could be retrieved. (no Epoch Photometry data).")
