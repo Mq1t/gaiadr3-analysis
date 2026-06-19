@@ -97,7 +97,7 @@ def lightcurve(df:pd.DataFrame, title:str='Flux Vs. Time', overplot:bool=True, r
         plt.scatter(x_g, y_g, c ='green', s = 3, label='G Band')
         plt.scatter(x_rp, y_rp, c ='red', s = 3, label='Rp Band')
         plt.scatter(x_bp, y_bp, c ='blue', s = 3, label='Bp Band')
-        plt.title(title)
+        plt.title(final_title)
         plt.legend()
         plt.gca().invert_yaxis()
         if xlims is not None:
@@ -242,7 +242,7 @@ def lomb_scargle(t: pd.DataFrame = None, mag: pd.DataFrame = None, title:str='Lo
             ax.set_xlim(xlims[0], xlims[1])
         ax.set_ylabel("Lomb-Scargle Power")
         ax.grid(True)
-
+        plt.title(final_title)
 
         #Create sub inset graph of best period
         sub_ax = inset_axes(
@@ -314,6 +314,7 @@ def pdm(t: pd.DataFrame, mag: pd.DataFrame, title:str='Phase Dispersion Minimiza
         plt.ylabel("Theta")
         plt.gca().invert_xaxis()
         plt.legend()
+        plt.title(final_title)
 
     if save_plot:
         safe_name = final_title.replace(" ", "_")

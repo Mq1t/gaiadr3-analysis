@@ -41,7 +41,7 @@ def ra_vs_dec(df: pd.DataFrame, xlim: int|float = None, ylim: int|float = None, 
     final_title = plot_title if plot_title is not None else title
 
     plt.scatter(x, y, c = color, s = size)
-    plt.title(title)
+    plt.title(final_title)
     plt.xlabel("RA")
     plt.ylabel("Dec")
     if xlim is not None:
@@ -166,7 +166,7 @@ def plot_hr_diagram(df, title: str = "Hertzsprung-Russell Diagram", save_plot: b
     plt.scatter(bprp, magnitude, c="white", s=1)
     plt.xlabel("BP - RP")
     plt.ylabel("Absolute Magnitude")
-    plt.title(title)
+    plt.title(final_title)
     plt.gca().invert_yaxis()
 
     if save_plot:
@@ -184,12 +184,14 @@ def hist(dists, bin_num:int = 50, parallax:bool =False, title:str = "Distances h
     if parallax:
         dists = (1000/dists)
 
-    plt.title(title)
+    final_title = plot_title if plot_title is not None else title
+
+    plt.title(final_title)
     plt.hist(dists, bins=bin_num)
 
     final_title = plot_title if plot_title is not None else title
 
-    plt.xlabel(title)
+    plt.xlabel('Distance (pc)')
     plt.ylabel('Stars per bin')
     if save_plot:
         safe_name = final_title.replace(" ", "_")
@@ -210,8 +212,8 @@ def fittedHist(dists, bin_num:int =50, range:list[int] =[-500,500],parallax:bool
     median = dists.median()
     std = dists.std()
 
-    print(title+", meidian: "+ str(median))
-    plt.title(title)
+    print("Distance"+", meidian: "+ str(median))
+    plt.title(final_title)
 
     final_title = plot_title if plot_title is not None else title
 
@@ -227,7 +229,7 @@ def fittedHist(dists, bin_num:int =50, range:list[int] =[-500,500],parallax:bool
     plt.plot(x_plot, gaussian(x_plot, *fit[0]), label ='Line of Best Fit')
 
     plt.xlim(range[0], range[1])
-    plt.xlabel(title)
+    plt.xlabel('Distance (pc)')
     plt.ylabel('Stars per bin')
     plt.legend()
 
