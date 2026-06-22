@@ -159,7 +159,17 @@ def lightcurve(df:pd.DataFrame, title:str='Flux Vs. Time', overplot:bool=True, r
 #t is times in julian days. If time is given in non-julian date already then jd = False when calling the function.
 #t is expected to be 'g_transit_time'
 #mag is expected to be 'g_transit_mag'
-def lomb_scargle(t: pd.DataFrame = None, mag: pd.DataFrame = None, title:str='Lomb-Scargle Periodogram', period_range: list[float] = None, xlims: list[float] = None, jd: bool=True, plot:bool=False, plot_title: str | None = None, save_plot: bool = False):
+def lomb_scargle(
+    t: pd.DataFrame = None, 
+    mag: pd.DataFrame = None, 
+    title:str='Lomb-Scargle Periodogram', 
+    period_range: list[float] = None, 
+    xlims: list[float] = None, 
+    jd: bool=True, 
+    plot:bool=False, 
+    plot_title: str | None = None, 
+    save_plot: bool = False
+):
     """
     Compute a Lomb-Scargle periodogram and optionally plot the result.
 
@@ -214,7 +224,9 @@ def lomb_scargle(t: pd.DataFrame = None, mag: pd.DataFrame = None, title:str='Lo
     
     #Convert to hours for inset
     period_hours = period_days * 24
-    
+
+    #Delete when done.
+    """
     #Get the best period
     best_idx = np.argmax(power)
     best_period_days = period_days[best_idx]
@@ -233,31 +245,46 @@ def lomb_scargle(t: pd.DataFrame = None, mag: pd.DataFrame = None, title:str='Lo
             f"Power: {power[idx]:.6f}, "
             f"FAP: {ls.false_alarm_probability(power[idx])}"
         )
+    """
+
+    
     if plot:
-        #Create main plot
-        fig, ax = plt.subplots(figsize=(8,5))
-        ax.plot(period_days, power)
-        ax.set_xlabel("Period (days)")
-        if(xlims is not None):
-            ax.set_xlim(xlims[0], xlims[1])
-        ax.set_ylabel("Lomb-Scargle Power")
-        ax.grid(True)
-        plt.title(final_title)
+        plot_ls(period_days=period_days, power=power, title=final_title, xlims=xlims, save_plot=save_plot)
+    
+    #return data
+    return (pd.DataFrame({"period":period_days, "power":power, "FAP":ls.false_alarm_probability(power)}))
 
-        #Create sub inset graph of best period
-        sub_ax = inset_axes(
-            parent_axes=ax,
-            width="30%",
-            height="30%",
-            borderpad=2
-        )
 
-        # Define zoom window (+-10% around best period)
-        zoom_width = 0.10 * best_period_hours
-        mask = (period_hours > best_period_hours - zoom_width) & (period_hours < best_period_hours + zoom_width)
-        sub_ax.plot(period_hours[mask], power[mask])
-        sub_ax.set_xlabel("Period (hours)")
-        sub_ax.grid(True)
+def plot_ls(period_days:pd.DataFrame, power:pd.DataFrame, title:str, xlims=None, save_plot:bool = False):
+    fig, ax = plt.subplots(figsize=(8,5))
+    ax.plot(period_days, power)
+    ax.set_xlabel("Period (days)")
+    if(xlims is not None):
+        ax.set_xlim(xlims[0], xlims[1])
+    ax.set_ylabel("Lomb-Scargle Power")
+    ax.grid(True)
+    plt.title(title)
+
+    #Create sub inset graph of best period
+    sub_ax = inset_axes(
+        parent_axes=ax,
+        width="30%",
+        height="30%",
+        borderpad=2
+    )
+
+    # Define zoom window (+-10% around best period)
+    period_hours = period_days * 24
+    best_idx = np.argmax(power)
+    best_period_days = period_days[best_idx]
+    best_period_hours = best_period_days * 24
+    print(f"Best period: {best_period_days:.6f} days ({best_period_hours:.3f} hours)")
+
+    zoom_width = 0.10 * best_period_hours
+    mask = (period_hours > best_period_hours - zoom_width) & (period_hours < best_period_hours + zoom_width)
+    sub_ax.plot(period_hours[mask], power[mask])
+    sub_ax.set_xlabel("Period (hours)")
+    sub_ax.grid(True)
     
     if save_plot:
         safe_name = final_title.replace(" ", "_")
@@ -265,9 +292,7 @@ def lomb_scargle(t: pd.DataFrame = None, mag: pd.DataFrame = None, title:str='Lo
         plt.savefig(filename, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filename}")
 
-        plt.show()
-    
-    return best_period_days
+    plt.show()
 
 def pdm(t: pd.DataFrame, 
         mag: pd.DataFrame, 
@@ -280,7 +305,7 @@ def pdm(t: pd.DataFrame,
         save_plot: bool = False
     ):
     """
-    Compute a Lomb-Scargle periodogram and optionally plot the result.
+    Compute a Phase Dispersion Minimization and optionally plot the result.
 
     Args:
         t (array-like): Time values (JD or relative).
@@ -317,7 +342,7 @@ def pdm(t: pd.DataFrame,
         final_title = plot_title if plot_title is not None else title
         plot_pdm(frequencies, theta, best_period, save_plot, final_title)
     
-    return pandas.DataFrame([frequencies, theta], ["frequency", "theta"])
+    return (pd.DataFrame({"frequency":frequencies, "theta":theta}))
 
 def plot_pdm(frequencies, theta, best_period:float = None, save:bool=False, title:str="ENTER NAME"):
     plt.figure(figsize=(8,5))
