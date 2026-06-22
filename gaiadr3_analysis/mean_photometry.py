@@ -5,7 +5,7 @@ from scipy.optimize import curve_fit
 
 
 #Create a Ra vs Dec diagram.
-def ra_vs_dec(df: pd.DataFrame, xlim: int|float = None, ylim: int|float = None, color: str ='red', size: int|float = 0.5, title: str = 'Right Ascension Vs. Declination', save_plot: bool = False, plot_title: str | None = None):
+def ra_vs_dec(df: pd.DataFrame, xlim: int|float = None, ylim: int|float = None, color: str ='red', size: int|float = 0.5, title: str = 'Right Ascension Vs. Declination', save_plot: bool = False, plot_title: str | None = None, save_title: str | None = None, save_default: str = 'ra_vs_dec'):
     """
     Plot Right Ascension (RA) vs Declination (Dec) from a pandas DataFrame.
 
@@ -39,6 +39,8 @@ def ra_vs_dec(df: pd.DataFrame, xlim: int|float = None, ylim: int|float = None, 
     y = df['dec']
     
     final_title = plot_title if plot_title is not None else title
+    final_save = save_title if save_title is not None else save_default
+
 
     plt.scatter(x, y, c = color, s = size)
     plt.title(final_title)
@@ -50,7 +52,7 @@ def ra_vs_dec(df: pd.DataFrame, xlim: int|float = None, ylim: int|float = None, 
         plt.ylim(ylim)
 
     if save_plot:
-        safe_name = final_title.replace(" ", "_")
+        safe_name = final_save.replace(" ", "_")
         filename = f"{safe_name}.pdf"
         plt.savefig(filename, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filename}")
@@ -58,7 +60,7 @@ def ra_vs_dec(df: pd.DataFrame, xlim: int|float = None, ylim: int|float = None, 
     plt.show()
 
 #Proper motion
-def pmra_vs_pmdec(df: pd.DataFrame, xlim:float=None, ylim:float=None, color: str ='red', size: int|float = 0.5, title: str = 'Right Ascension Vs. Declination in Proper Motion Space', save_plot: bool = False, plot_title: str | None = None):
+def pmra_vs_pmdec(df: pd.DataFrame, xlim:float=None, ylim:float=None, color: str ='red', size: int|float = 0.5, title: str = 'Right Ascension Vs. Declination in Proper Motion Space', save_plot: bool = False, plot_title: str | None = None, save_title: str | None = None, save_default: str = 'pmra_vs_pmdec'):
     """
     Plot Right Ascension (RA) vs Declination (Dec) in proper motion space from a pandas DataFrame.
 
@@ -92,9 +94,10 @@ def pmra_vs_pmdec(df: pd.DataFrame, xlim:float=None, ylim:float=None, color: str
     plt.scatter(x, y, c = color, s = size)
 
     final_title = plot_title if plot_title is not None else title
-    
+    final_save = save_title if save_title is not None else save_default
+
     #Titles and Show graph
-    plt.title(title)
+    plt.title(final_title)
     plt.xlabel("PM RA")
     plt.ylabel("PM Dec")
     if xlim is not None:
@@ -103,7 +106,7 @@ def pmra_vs_pmdec(df: pd.DataFrame, xlim:float=None, ylim:float=None, color: str
         plt.ylim(ylim)
 
     if save_plot:
-        safe_name = final_title.replace(" ", "_")
+        safe_name = final_save.replace(" ", "_")
         filename = f"{safe_name}.pdf"
         plt.savefig(filename, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filename}")
@@ -148,7 +151,7 @@ def get_bprp(phot_bp_mean_mag, phot_rp_mean_mag):
     return phot_bp_mean_mag - phot_rp_mean_mag
 
 
-def plot_hr_diagram(df, title: str = "Hertzsprung-Russell Diagram", save_plot: bool = False, plot_title: str | None = None):
+def plot_hr_diagram(df, title: str = "Hertzsprung-Russell Diagram", save_plot: bool = False, plot_title: str | None = None, save_title: str | None = None, save_default: str = "hr_diagram"):
     """Plot an HR diagram from a Gaia dataframe.
 
     Args:
@@ -161,6 +164,7 @@ def plot_hr_diagram(df, title: str = "Hertzsprung-Russell Diagram", save_plot: b
     bprp = [get_bprp(row["phot_bp_mean_mag"], row["phot_rp_mean_mag"]) for _, row in df.iterrows()]
 
     final_title = plot_title if plot_title is not None else title
+    final_save = save_title if save_title is not None else save_default
 
     plt.style.use("dark_background")
     plt.scatter(bprp, magnitude, c="white", s=1)
@@ -170,14 +174,14 @@ def plot_hr_diagram(df, title: str = "Hertzsprung-Russell Diagram", save_plot: b
     plt.gca().invert_yaxis()
 
     if save_plot:
-        safe_name = final_title.replace(" ", "_")
+        safe_name = final_save.replace(" ", "_")
         filename = f"{safe_name}.pdf"
         plt.savefig(filename, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filename}")
 
     plt.show()
 
-def hist(dists, bin_num:int = 50, parallax:bool =False, title:str = "Distances histogram", save_plot: bool = False, plot_title: str | None = None):
+def hist(dists, bin_num:int = 50, parallax:bool =False, title:str = "Distances histogram", save_plot: bool = False, plot_title: str | None = None, save_title: str | None = None, save_default: str = "distance_hist"):
     #Magnitude, Y-Values
 
     #Adjust if dist given in parallax
@@ -185,16 +189,14 @@ def hist(dists, bin_num:int = 50, parallax:bool =False, title:str = "Distances h
         dists = (1000/dists)
 
     final_title = plot_title if plot_title is not None else title
+    final_save = save_title if save_title is not None else save_default
 
     plt.title(final_title)
     plt.hist(dists, bins=bin_num)
-
-    final_title = plot_title if plot_title is not None else title
-
     plt.xlabel('Distance (pc)')
     plt.ylabel('Stars per bin')
     if save_plot:
-        safe_name = final_title.replace(" ", "_")
+        safe_name = final_save.replace(" ", "_")
         filename = f"{safe_name}.pdf"
         plt.savefig(filename, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filename}")
@@ -204,7 +206,7 @@ def hist(dists, bin_num:int = 50, parallax:bool =False, title:str = "Distances h
 def gaussian(x, A, sigma, mu):
     return A*(1/(sigma * np.sqrt(2*np.pi)) * np.exp(-1*(x - mu)**2 / (2*sigma**2)))
 
-def fittedHist(dists, bin_num:int =50, range:list[int] =[-500,500],parallax:bool =False, title:str = "Distances histogram", save_plot: bool = False, plot_title: str | None = None):
+def fittedHist(dists, bin_num:int =50, range:list[int] =[-500,500],parallax:bool =False, title:str = "Distances histogram", save_plot: bool = False, plot_title: str | None = None, save_title: str | None = None, save_default: str = "fitted_dist_hist"):
     #Magnitude, Y-Values
     if parallax:
         dists = (1000/dists)
@@ -213,10 +215,12 @@ def fittedHist(dists, bin_num:int =50, range:list[int] =[-500,500],parallax:bool
     std = dists.std()
 
     print("Distance"+", meidian: "+ str(median))
-    plt.title(final_title)
+    
 
     final_title = plot_title if plot_title is not None else title
+    final_save = save_title if save_title is not None else save_default
 
+    plt.title(final_title)
     h_1d_output = plt.hist(dists, bins=bin_num)
     x_plot = np.linspace(range[0],range[1], 300)
     x_1d_fit = (h_1d_output[1][:-1]+h_1d_output[1][1:])/2
@@ -234,7 +238,7 @@ def fittedHist(dists, bin_num:int =50, range:list[int] =[-500,500],parallax:bool
     plt.legend()
 
     if save_plot:
-        safe_name = final_title.replace(" ", "_")
+        safe_name = final_save.replace(" ", "_")
         filename = f"{safe_name}.pdf"
         plt.savefig(filename, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filename}")

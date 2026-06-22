@@ -22,7 +22,7 @@ def phase(t, T_0, P):
     return ((t-T_0)/P) % 1
 
 #Plot G, Bp and Rp magnitude light curves in time.
-def lightcurve(df:pd.DataFrame, title:str='Flux Vs. Time', overplot:bool=True, rejectflags: bool=False, period:float=None, xlims:tuple[int|float, int|float]=None, ylims:tuple[int|float, int|float]=None, plot_title: str | None = None, save_plot: bool = False):
+def lightcurve(df:pd.DataFrame, title:str='Flux Vs. Time', overplot:bool=True, rejectflags: bool=False, period:float=None, xlims:tuple[int|float, int|float]=None, ylims:tuple[int|float, int|float]=None, plot_title: str | None = None, save_plot: bool = False, save_title: str | None = None, save_default: str = "lightcurve"):
     """
     Plot G, Bp and Rp magnitude light curves in time.
 
@@ -90,6 +90,7 @@ def lightcurve(df:pd.DataFrame, title:str='Flux Vs. Time', overplot:bool=True, r
     y_rp = rp_df[rp]
 
     final_title = plot_title if plot_title is not None else title
+    final_save = save_title if save_title is not None else save_default
 
     if overplot is True:
         plt.xlabel(x_label)
@@ -149,7 +150,7 @@ def lightcurve(df:pd.DataFrame, title:str='Flux Vs. Time', overplot:bool=True, r
     plt.tight_layout()
 
     if save_plot:
-        safe_name = final_title.replace(" ", "_")
+        safe_name = final_save.replace(" ", "_")
         filename = f"{safe_name}.pdf"
         plt.savefig(filename, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filename}")
@@ -159,7 +160,7 @@ def lightcurve(df:pd.DataFrame, title:str='Flux Vs. Time', overplot:bool=True, r
 #t is times in julian days. If time is given in non-julian date already then jd = False when calling the function.
 #t is expected to be 'g_transit_time'
 #mag is expected to be 'g_transit_mag'
-def lomb_scargle(t: pd.DataFrame = None, mag: pd.DataFrame = None, title:str='Lomb-Scargle Periodogram', period_range: list[float] = None, xlims: list[float] = None, jd: bool=True, plot:bool=False, plot_title: str | None = None, save_plot: bool = False):
+def lomb_scargle(t: pd.DataFrame = None, mag: pd.DataFrame = None, title:str='Lomb-Scargle Periodogram', period_range: list[float] = None, xlims: list[float] = None, jd: bool=True, plot:bool=False, plot_title: str | None = None, save_plot: bool = False, save_title: str | None = None, save_default: str = "lomb_scargle"):
     """
     Compute a Lomb-Scargle periodogram and optionally plot the result.
 
@@ -208,7 +209,8 @@ def lomb_scargle(t: pd.DataFrame = None, mag: pd.DataFrame = None, title:str='Lo
     )
 
     final_title = plot_title if plot_title is not None else title
-
+    final_save = save_title if save_title is not None else save_default
+    
     #Convert frequency to period
     period_days = 1/frequency
     
@@ -260,7 +262,7 @@ def lomb_scargle(t: pd.DataFrame = None, mag: pd.DataFrame = None, title:str='Lo
         sub_ax.grid(True)
     
     if save_plot:
-        safe_name = final_title.replace(" ", "_")
+        safe_name = final_save.replace(" ", "_")
         filename = f"{safe_name}.pdf"
         plt.savefig(filename, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filename}")
@@ -269,7 +271,7 @@ def lomb_scargle(t: pd.DataFrame = None, mag: pd.DataFrame = None, title:str='Lo
     
     return best_period_days
 
-def pdm(t: pd.DataFrame, mag: pd.DataFrame, title:str='Phase Dispersion Minimization', bins:int|float = 50, covers:int = 3, freq_range:list[int|float] = [0.01, 10.0, 0.001], plot = False, plot_title: str | None = None, save_plot: bool = False):
+def pdm(t: pd.DataFrame, mag: pd.DataFrame, title:str='Phase Dispersion Minimization', bins:int|float = 50, covers:int = 3, freq_range:list[int|float] = [0.01, 10.0, 0.001], plot = False, plot_title: str | None = None, save_plot: bool = False, save_title: str | None = None, save_default: str = "pdm_plot"):
     """
     Compute a Lomb-Scargle periodogram and optionally plot the result.
 
@@ -305,6 +307,7 @@ def pdm(t: pd.DataFrame, mag: pd.DataFrame, title:str='Phase Dispersion Minimiza
     print("Best period =", best_period, "days")
 
     final_title = plot_title if plot_title is not None else title
+    final_save = save_title if save_title is not None else save_default
 
     if plot == True:
         plt.figure(figsize=(8,5))
@@ -317,7 +320,7 @@ def pdm(t: pd.DataFrame, mag: pd.DataFrame, title:str='Phase Dispersion Minimiza
         plt.title(final_title)
 
     if save_plot:
-        safe_name = final_title.replace(" ", "_")
+        safe_name = final_save.replace(" ", "_")
         filename = f"{safe_name}.pdf"
         plt.savefig(filename, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filename}")
