@@ -269,7 +269,16 @@ def lomb_scargle(t: pd.DataFrame = None, mag: pd.DataFrame = None, title:str='Lo
     
     return best_period_days
 
-def pdm(t: pd.DataFrame, mag: pd.DataFrame, title:str='Phase Dispersion Minimization', bins:int|float = 50, covers:int = 3, freq_range:list[int|float] = [0.01, 10.0, 0.001], plot = False, plot_title: str | None = None, save_plot: bool = False):
+def pdm(t: pd.DataFrame, 
+        mag: pd.DataFrame, 
+        title:str='Phase Dispersion Minimization', 
+        bins:int|float = 50, 
+        covers:int = 3, 
+        freq_range:list[int|float] = [0.01, 10.0, 0.001], 
+        plot = False, 
+        plot_title: str | None = None, 
+        save_plot: bool = False
+    ):
     """
     Compute a Lomb-Scargle periodogram and optionally plot the result.
 
@@ -304,24 +313,27 @@ def pdm(t: pd.DataFrame, mag: pd.DataFrame, title:str='Phase Dispersion Minimiza
 
     print("Best period =", best_period, "days")
 
-    final_title = plot_title if plot_title is not None else title
-
     if plot == True:
-        plt.figure(figsize=(8,5))
-        plt.plot(1/frequencies, theta, 'k-')
-        plt.axvline(best_period, c='red', label=f"Best Period: {best_period:6f} days")
-        plt.xlabel("Period (days)")
-        plt.ylabel("Theta")
-        plt.gca().invert_xaxis()
-        plt.legend()
-        plt.title(final_title)
+        final_title = plot_title if plot_title is not None else title
+        plot_pdm(frequencies, theta, best_period, save_plot, final_title)
+    
+    return pandas.DataFrame([frequencies, theta], ["frequency", "theta"])
 
-    if save_plot:
-        safe_name = final_title.replace(" ", "_")
+def plot_pdm(frequencies, theta, best_period:float = None, save:bool=False, title:str="ENTER NAME"):
+    plt.figure(figsize=(8,5))
+    plt.plot(1/frequencies, theta, 'k-')
+    if(best_period is not None):
+        plt.axvline(best_period, c='red', label=f"Best Period: {best_period:6f} days")
+    plt.xlabel("Period (days)")
+    plt.ylabel("Theta")
+    plt.gca().invert_xaxis()
+    plt.legend()
+    plt.title(title)
+
+    if save:
+        safe_name = title.replace(" ", "_")
         filename = f"{safe_name}.pdf"
         plt.savefig(filename, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filename}")
 
-        plt.show()
-    
-    return best_period
+    plt.show()
