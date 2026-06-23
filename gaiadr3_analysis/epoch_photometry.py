@@ -157,8 +157,8 @@ def lightcurve(df:pd.DataFrame, title:str='Flux Vs. Time', overplot:bool=True, r
     plt.show()
 
 #t is times in julian days. If time is given in non-julian date already then jd = False when calling the function.
-#t is expected to be 'g_transit_time'
-#mag is expected to be 'g_transit_mag'
+#t is expected to be df['g_transit_time']
+#mag is expected to be df['g_transit_mag']
 def lomb_scargle(
     t: pd.DataFrame = None, 
     mag: pd.DataFrame = None, 
@@ -225,34 +225,15 @@ def lomb_scargle(
     #Convert to hours for inset
     period_hours = period_days * 24
 
-    #Delete when done.
-    """
-    #Get the best period
-    best_idx = np.argmax(power)
-    best_period_days = period_days[best_idx]
-    best_period_hours = best_period_days * 24
-    print(f"Best period: {best_period_days:.6f} days ({best_period_hours:.3f} hours)")
-
-    #Get the top 5 periods
-    top5_idx = np.argsort(power)[-5:][::-1]
-    
-    # Print results
-    for rank, idx in enumerate(top5_idx, start=1):
-        print(
-            f"{rank}. "
-            f"Period: {period_days[idx]:.6f} days "
-            f"({period_hours[idx]:.3f} hours), "
-            f"Power: {power[idx]:.6f}, "
-            f"FAP: {ls.false_alarm_probability(power[idx])}"
-        )
-    """
+    #False Alarm Probabilities
+    FAP = [ls.false_alarm_probability(p) for p in power]
 
     
     if plot:
         plot_ls(period_days=period_days, power=power, title=final_title, xlims=xlims, save_plot=save_plot)
     
     #return data
-    return (pd.DataFrame({"period":period_days, "power":power, "FAP":ls.false_alarm_probability(power)}))
+    return (pd.DataFrame({"period":period_days, "power":power, "FAP":FAP}))
 
 
 def plot_ls(period_days:pd.DataFrame, power:pd.DataFrame, title:str, xlims=None, save_plot:bool = False):
