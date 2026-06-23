@@ -23,7 +23,18 @@ def phase(t, T_0, P):
     return ((t-T_0)/P) % 1
 
 #Plot G, Bp and Rp magnitude light curves in time.
-def lightcurve(df:pd.DataFrame, title:str='Flux Vs. Time', overplot:bool=True, rejectflags: bool=False, period:float=None, xlims:tuple[int|float, int|float]=None, ylims:tuple[int|float, int|float]=None, plot_title: str | None = None, save_plot: bool = False, save_title: str | None = None, save_default: str = "lightcurve"):
+def lightcurve(
+        df:pd.DataFrame, 
+        title:str='Flux Vs. Time', 
+        overplot:bool=True, 
+        rejectflags: bool=False, 
+        period:float=None, 
+        xlims:tuple[int|float, int|float]=None, 
+        ylims:tuple[int|float, int|float]=None, 
+        plot_title: str | None = None, 
+        save_plot: bool = False, 
+        save_title: str | None = None, 
+        save_default: str = "lightcurve"):
     """
     Plot G, Bp and Rp magnitude light curves in time.
 
@@ -164,13 +175,13 @@ def lightcurve(df:pd.DataFrame, title:str='Flux Vs. Time', overplot:bool=True, r
 def lomb_scargle(
     t: pd.DataFrame = None, 
     mag: pd.DataFrame = None, 
-    title:str='Lomb-Scargle Periodogram', 
+    plot_title:str='Lomb-Scargle Periodogram', 
     period_range: list[float] = None, 
     xlims: list[float] = None, 
     jd: bool=True, 
     plot:bool=False, 
-    plot_title: str | None = None, 
-    save_plot: bool = False
+    save_plot: bool = False,
+    save_title: str = "ls_plot", 
 ):
     """
     Compute a Lomb-Scargle periodogram and optionally plot the result.
@@ -218,28 +229,29 @@ def lomb_scargle(
         minimum_frequency=1/period_range[1],    # max period
         maximum_frequency=1/period_range[0]  # min period
     )
-
-    final_title = plot_title if plot_title is not None else title
-    final_save = save_title if save_title is not None else save_default
     
     #Convert frequency to period
     period_days = 1/frequency
-    
-    #Convert to hours for inset
-    period_hours = period_days * 24
 
     #False Alarm Probabilities
     FAP = [ls.false_alarm_probability(p) for p in power]
 
     
     if plot:
-        plot_ls(period_days=period_days, power=power, title=final_title, xlims=xlims, save_plot=save_plot)
+        plot_ls(period_days=period_days, power=power, title=plot_title, xlims=xlims, save_plot=save_plot, save_name=save_title)
     
     #return data
     return (pd.DataFrame({"period":period_days, "power":power, "FAP":FAP}))
 
 
-def plot_ls(period_days:pd.DataFrame, power:pd.DataFrame, title:str, xlims=None, save_plot:bool = False):
+def plot_ls(
+        period_days:pd.DataFrame, 
+        power:pd.DataFrame, 
+        title:str, 
+        xlims=None, 
+        save_plot:bool = False, 
+        save_name:str="ls_plot"
+    ):
     fig, ax = plt.subplots(figsize=(8,5))
     ax.plot(period_days, power)
     ax.set_xlabel("Period (days)")
@@ -271,7 +283,7 @@ def plot_ls(period_days:pd.DataFrame, power:pd.DataFrame, title:str, xlims=None,
     sub_ax.grid(True)
     
     if save_plot:
-        safe_name = final_save.replace(" ", "_")
+        safe_name = save_name.replace(" ", "_")
         filename = f"{safe_name}.pdf"
         plt.savefig(filename, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filename}")
@@ -280,13 +292,13 @@ def plot_ls(period_days:pd.DataFrame, power:pd.DataFrame, title:str, xlims=None,
 
 def pdm(t: pd.DataFrame, 
         mag: pd.DataFrame, 
-        title:str='Phase Dispersion Minimization', 
+        plot_title:str='Phase Dispersion Minimization', 
         bins:int|float = 50, 
         covers:int = 3, 
         freq_range:list[int|float] = [0.01, 10.0, 0.001], 
         plot = False, 
-        plot_title: str | None = None, 
-        save_plot: bool = False
+        save_plot: bool = False,
+        save_title: str = "pdm_plot", 
     ):
     """
     Compute a Phase Dispersion Minimization and optionally plot the result.
@@ -323,12 +335,11 @@ def pdm(t: pd.DataFrame,
     print("Best period =", best_period, "days")
 
     if plot == True:
-        final_title = plot_title if plot_title is not None else title
-        plot_pdm(frequencies, theta, best_period, save_plot, final_title)
+        plot_pdm(frequencies=frequencies, theta=theta, best_period=best_period, save=save_plot, title=plot_title, save_name=save_title)
     
     return (pd.DataFrame({"frequency":frequencies, "theta":theta}))
 
-def plot_pdm(frequencies, theta, best_period:float = None, save:bool=False, title:str="ENTER NAME"):
+def plot_pdm(frequencies, theta, best_period:float = None, save:bool=False, title:str= "PDM Plot", save_name:str="pdm_plot"):
     plt.figure(figsize=(8,5))
     plt.plot(1/frequencies, theta, 'k-')
     if(best_period is not None):
@@ -340,7 +351,7 @@ def plot_pdm(frequencies, theta, best_period:float = None, save:bool=False, titl
     plt.title(title)
 
     if save:
-        safe_name = title.replace(" ", "_")
+        safe_name = save_name.replace(" ", "_")
         filename = f"{safe_name}.pdf"
         plt.savefig(filename, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filename}")
