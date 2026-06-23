@@ -6,7 +6,7 @@ from astropy.timeseries import LombScargle
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from PyAstronomy.pyTiming import pyPDM
-from constants import JD_offset
+from .constants import JD_offset
 
 def phase(t, T_0, P):
     """
