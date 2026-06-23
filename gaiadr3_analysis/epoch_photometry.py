@@ -6,6 +6,7 @@ from astropy.timeseries import LombScargle
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from PyAstronomy.pyTiming import pyPDM
+from constants import JD_offset
 
 def phase(t, T_0, P):
     """
@@ -71,9 +72,9 @@ def lightcurve(df:pd.DataFrame, title:str='Flux Vs. Time', overplot:bool=True, r
 
     print(f"Len g, bp, and rp datasets respectively: {len(g_df)}, {len(bp_df)}, {len(rp_df)}")
     #X-Value: G Transit time
-    x_g = g_df[g_time] + 2455197.5
-    x_bp = bp_df[bp_time] + 2455197.5
-    x_rp = rp_df[rp_time] + 2455197.5
+    x_g = g_df[g_time] + JD_offset
+    x_bp = bp_df[bp_time] + JD_offset
+    x_rp = rp_df[rp_time] + JD_offset
     x_label = "Time (JD)"
     
     #Phase x if true
