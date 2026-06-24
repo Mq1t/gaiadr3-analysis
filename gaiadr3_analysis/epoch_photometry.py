@@ -241,7 +241,7 @@ def lomb_scargle(
         plot_ls(period_days=period_days, power=power, title=plot_title, xlims=xlims, save_plot=save_plot, save_name=save_title)
     
     #return data
-    return (pd.DataFrame({"period":period_days, "power":power, "FAP":FAP}))
+    return (pd.DataFrame({"period":period_days, "power":power, "Fasle Alarm Probability":FAP}))
 
 
 def plot_ls(
