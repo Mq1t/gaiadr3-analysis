@@ -61,9 +61,9 @@ def find_cluster(ra, dec, distance):
         distance (float): Distance to the star in parsecs.
 
     Returns:
-        str | None: Name of the best matching cluster, or none if no match is found.
+        str | None: Name of the best matching cluster, or None if no match is found.
     """
-    Simbad.add_votable_fields('otype', 'plx')
+    Simbad.add_votable_fields('otype', 'parallax')
     coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
     result = Simbad.query_region(coord, radius=0.5 * u.deg)
 
@@ -72,15 +72,15 @@ def find_cluster(ra, dec, distance):
 
     best_name, best_diff = None, None
     for row in result:
-        if row["OTYPE"] not in ("Cl*", "OpC", "GlC", "As*"):
+        if row["otype"] not in ("Cl*", "OpC", "GlC", "As*"):
             continue
-        plx = row["PLX_VALUE"]
+        plx = row["plx_value"]
         if not plx or plx <= 0:
             continue
 
         diff = abs((1000 / plx) - distance)
         if best_diff is None or diff < best_diff:
-            best_diff, best_name = diff, row["MAIN_ID"]
+            best_diff, best_name = diff, row["main_id"]
 
     return best_name
 
