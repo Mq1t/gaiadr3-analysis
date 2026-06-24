@@ -29,6 +29,7 @@ dependencies = [
     "matplotlib>=3.5",
     "scipy>=1.8",
     "astroquery>=0.4",
+    "PyAstronomy>=0.18",
 ]
 
 [tool.setuptools.packages.find]
@@ -36,7 +37,7 @@ exclude = ["tests*", "docs*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-verbose = true
+addopts = "-v"
 
 [tool.setuptools]
 include-package-data = true
