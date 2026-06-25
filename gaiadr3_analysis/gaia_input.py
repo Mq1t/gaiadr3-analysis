@@ -125,7 +125,7 @@ def get_dataframe():
     return df
 
 
-def query_by_adql(adql_query):
+def query_by_adql(adql_query, save_file: bool = False, file_name: str = None):
     """Query Gaia with an ADQL query.
  
     If 'identifier' is given, it is resolved to a Gaia DR3 source ID (via resolve_id) and substituted into 'adql_query' wherever the
@@ -139,17 +139,35 @@ def query_by_adql(adql_query):
     Returns:
         pandas.DataFrame: Query results
     """
+                        
     if identifier is not None:
         gaia_id = resolve_id(identifier)
+            
         if gaia_id is None:
             print(f"Could not resolve '{identifier}' to a Gaia DR3 source ID; query not run.")
             return None
+        elif file_name == None:
+            file_name = str(gaia_id)
         adql_query = adql_query.format(source_id=gaia_id)
  
     job = Gaia.launch_job(adql_query)
-    return job.get_results().to_pandas()
+    df = job.get_results().to_pandas()
+    
+    if save_file:
+            formatted_name = file_name.replace(" ", "_")
+            formatted_name = f"{formatted_name}.csv"
+            df.to_csv(formatted_name)
+    
+    return df
 
-def query_by_datalink(gaia_ids: int | list[int], release: str = 'Gaia DR3', retrieval: str = 'EPOCH_PHOTOMETRY', structure: str = 'INDIVIDUAL'):
+def query_by_datalink(
+    gaia_ids: int | list[int], 
+    release: str = 'Gaia DR3', 
+    retrieval: str = 'EPOCH_PHOTOMETRY', 
+    structure: str = 'INDIVIDUAL'
+    save_file: bool = False,
+    folder_name: str = None
+):
     """Query Gaia with a Datalink query.
  
     Any non-Gaia identifiers are automatically resolved to Gaia DR3 source IDs via SIMBAD (see resolve_id) before the query is run.
@@ -164,6 +182,11 @@ def query_by_datalink(gaia_ids: int | list[int], release: str = 'Gaia DR3', retr
     Returns:
         dict: Query results. Keys are Gaia IDs, values are epoch photometry DataFrames.
     """
+
+     #Make sure folder_name exists if save_file is True
+    if save_file == True and type(folder_name) != str:
+        raise TypeError(f"Expected string data for folder_name, got {type(folder_name)})
+    
     if isinstance(gaia_ids, (int, str)):
         gaia_ids = [gaia_ids]
  
@@ -176,12 +199,18 @@ def query_by_datalink(gaia_ids: int | list[int], release: str = 'Gaia DR3', retr
     dl_query = Gaia.load_data(ids=resolved_ids, data_release=release, retrieval_type=retrieval, data_structure=structure)
     df_dict = {}
     retrieved_ids = set()
- 
+    
     for key, value in dl_query.items():
         retrieved_ids.add(key)
         gaia_id = int(key[26:-4])
         df = value[0].to_table().to_pandas()
         df_dict[gaia_id] = df
+
+        #Add file to folder if save_file is True
+        if save_file: 
+            file_name = folder_name+"/"+str(gaia_id)+".csv" 
+            df.to_csv(file_name)
+            
  
     if len(retrieved_ids) <= 0:
         print("No IDs could be retrieved. (no Epoch Photometry data).")
