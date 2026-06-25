@@ -180,7 +180,7 @@ def query_by_datalink(
     gaia_ids: int | list[int], 
     release: str = 'Gaia DR3', 
     retrieval: str = 'EPOCH_PHOTOMETRY', 
-    structure: str = 'INDIVIDUAL'
+    structure: str = 'INDIVIDUAL',
     save_file: bool = False,
     folder_name: str = None
 ):
@@ -201,7 +201,7 @@ def query_by_datalink(
 
      #Make sure folder_name exists if save_file is True
     if save_file == True and type(folder_name) != str:
-        raise TypeError(f"Expected string data for folder_name, got {type(folder_name)})
+        raise TypeError(f"Expected string data for folder_name, got {type(folder_name)}")
     
     if isinstance(gaia_ids, (int, str)):
         gaia_ids = [gaia_ids]
