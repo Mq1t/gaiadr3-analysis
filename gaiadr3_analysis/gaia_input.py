@@ -98,7 +98,14 @@ def get_dataframe():
  
     if choice == "1":
         adql_query = input("ADQL query: ").strip()
-        df = query_by_adql(adql_query)
+        if input("Save to csv file? (y/n): ").strip().lower() == "y":
+            path = input("Enter name for file OR path to file (press Enter for default name): ").strip()
+            if path != "":
+                df = query_by_adql(adql_query, save_file = True, file_name = path)
+            else:
+                df = query_by_adql(adql_query, save_file = True)
+        else:
+            df = query_by_adql(adql_query)
  
     elif choice == "2":
         filepath = input("CSV path: ").strip()
@@ -107,14 +114,23 @@ def get_dataframe():
     elif choice == "3":
         raw = input("Gaia source ID(s) or star name(s), comma-separated: ").strip()
         gaia_ids = [i.strip() for i in raw.split(",")]
-        results = query_by_datalink(gaia_ids)
+        
+        if input("Save to csv file? (y/n): ").strip().lower() == "y":
+            path = input("Enter folder name OR path to folder (folder must exist): ").strip()
+            if path != "":
+                df = query_by_datalink(gaia_ids, folder_name = path)
+        else:
+            df = query_by_datalink(gaia_ids)
+
+
+        """ I think we should remove this and only return the full dictionary.
         if results:
             first_id = next(iter(results))
             df = results[first_id]
             print(f"Returning epoch photometry for ID {first_id}. Full dictionary available via query_by_datalink().")
         else:
             return None
- 
+        """
     else:
         print("Invalid choice.")
         return None
