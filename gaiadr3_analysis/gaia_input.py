@@ -43,7 +43,7 @@ def resolve_id(identifier):
     result = Simbad.query_objectids(identifier)
     if result is None:
         print(f"Could not resolve '{identifier}'.")
-        return None
+        return -1
  
     for row in result["id"]:
         if row.startswith("Gaia DR3 "):
