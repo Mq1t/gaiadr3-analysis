@@ -141,7 +141,7 @@ def get_dataframe():
     return df
 
 
-def query_by_adql(adql_query, save_file: bool = False, file_name: str = None):
+def query_by_adql(adql_query:str, identifier: int|str = None, save_file: bool = False, file_name: str = None):
     """Query Gaia with an ADQL query.
  
     If 'identifier' is given, it is resolved to a Gaia DR3 source ID (via resolve_id) and substituted into 'adql_query' wherever the
