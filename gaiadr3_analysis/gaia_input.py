@@ -88,33 +88,30 @@ def find_star(
     ra:str|float = None, 
     dec:str|float = None, 
     coordinates:SkyCoord = None, 
+    columns:str = '*',
     save_file:bool = False, 
     file_name:str = "star_query", 
     degree_range:float = 0.0001
 ):
     if type(ra) == str and type(dec) == str:
         deg_coord = SkyCoord(ra, dec, unit=(u.hourangle, u.deg))
-        ra_deg = deg_coord.ra.deg
-        dec_deg = deg_coord.dec.deg
-    elif ra is not None and dec is not None:
-        ra_deg = ra
-        dec_dec = dec
-    else:
-        ra_deg = coordinates.ra.deg
-        dec_deg = coordinates.dec.deg
-
+        ra = deg_coord.ra.deg
+        dec = deg_coord.dec.deg
+    elif (ra is None and dec is None) and coordinates is not None:
+        ra = coordinates.ra.deg
+        dec = coordinates.dec.deg
     query = f"""
-    SELECT TOP 10 *
+    SELECT TOP 10 {columns}
     FROM gaiadr3.gaia_source
     WHERE CONTAINS(
         POINT('ICRS', ra, dec),
-        CIRCLE('ICRS', {ra_deg}, {dec_deg}, {degree_range})
+        CIRCLE('ICRS', {ra}, {dec}, {degree_range})
     ) = 1
     """
     if(save_file):
-        df = gi.query_by_adql(query, save_file = True, file_name = file_name)
+        df = query_by_adql(query, save_file = True, file_name = file_name)
     else:
-        df = gi.query_by_adql(query)
+        df = query_by_adql(query)
 
     return df
         
