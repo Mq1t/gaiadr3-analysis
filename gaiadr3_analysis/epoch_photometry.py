@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from PyAstronomy.pyTiming import pyPDM
 from .constants import JD_offset
+import os
+
+default_folder = "plots"
 
 def phase(t, T_0, P):
     """
@@ -34,7 +37,8 @@ def lightcurve(
         plot_title: str | None = None, 
         save_plot: bool = False, 
         save_title: str | None = None, 
-        save_default: str = "lightcurve"):
+        save_default: str = "lightcurve",
+        save_folder: str = default_folder):
     """
     Plot G, Bp and Rp magnitude light curves in time.
 
@@ -162,10 +166,12 @@ def lightcurve(
     plt.tight_layout()
 
     if save_plot:
+        os.makedirs(save_folder, exist_ok=True)
         safe_name = final_save.replace(" ", "_")
+        filepath = os.path.join(save_folder, f"{safe_name}.pdf")
         filename = f"{safe_name}.pdf"
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
-        print(f"Plot saved as {filename}")
+        plt.savefig(filepath, dpi=300, bbox_inches='tight')
+        print(f"Plot saved as {filepath}")
 
     plt.show()
 
@@ -182,6 +188,7 @@ def lomb_scargle(
     plot:bool=False, 
     save_plot: bool = False,
     save_title: str = "ls_plot", 
+    save_folder: str = default_folder
 ):
     """
     Compute a Lomb-Scargle periodogram and optionally plot the result.
@@ -250,7 +257,8 @@ def plot_ls(
         title:str, 
         xlims=None, 
         save_plot:bool = False, 
-        save_name:str="ls_plot"
+        save_name:str="ls_plot", 
+        save_folder: str = default_folder
     ):
     fig, ax = plt.subplots(figsize=(8,5))
     ax.plot(period_days, power)
@@ -283,10 +291,12 @@ def plot_ls(
     sub_ax.grid(True)
     
     if save_plot:
+        os.makedirs(save_folder, exist_ok=True)
         safe_name = save_name.replace(" ", "_")
         filename = f"{safe_name}.pdf"
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
-        print(f"Plot saved as {filename}")
+        filepath = os.path.join(save_folder, filename)
+        plt.savefig(filepath, dpi=300, bbox_inches='tight')
+        print(f"Plot saved as {filepath}")
 
     plt.show()
 
@@ -299,6 +309,7 @@ def pdm(t: pd.DataFrame,
         plot = False, 
         save_plot: bool = False,
         save_title: str = "pdm_plot", 
+        save_folder: str = default_folder
     ):
     """
     Compute a Phase Dispersion Minimization and optionally plot the result.
@@ -339,7 +350,7 @@ def pdm(t: pd.DataFrame,
     
     return (pd.DataFrame({"frequency":frequencies, "theta":theta}))
 
-def plot_pdm(frequencies, theta, best_period:float = None, save:bool=False, title:str= "PDM Plot", save_name:str="pdm_plot"):
+def plot_pdm(frequencies, theta, best_period:float = None, save:bool=False, title:str= "PDM Plot", save_name:str="pdm_plot", save_folder: str = default_folder):
     plt.figure(figsize=(8,5))
     plt.plot(1/frequencies, theta, 'k-')
     if(best_period is not None):
@@ -351,9 +362,11 @@ def plot_pdm(frequencies, theta, best_period:float = None, save:bool=False, titl
     plt.title(title)
 
     if save:
+        os.makedirs(save_folder, exist_ok=True)
         safe_name = save_name.replace(" ", "_")
         filename = f"{safe_name}.pdf"
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
-        print(f"Plot saved as {filename}")
+        filepath = os.path.join(save_folder, filename)
+        plt.savefig(filepath, dpi=300, bbox_inches='tight')
+        print(f"Plot saved as {filepath}")
 
     plt.show()

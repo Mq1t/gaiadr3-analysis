@@ -2,10 +2,12 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from scipy.optimize import curve_fit
+import os
 
+default_folder = "plots" 
 
 #Create a Ra vs Dec diagram.
-def ra_vs_dec(df: pd.DataFrame, xlim: int|float = None, ylim: int|float = None, color: str ='red', size: int|float = 0.5, title: str = 'Right Ascension Vs. Declination', save_plot: bool = False, plot_title: str | None = None, save_title: str | None = None, save_default: str = 'ra_vs_dec'):
+def ra_vs_dec(df: pd.DataFrame, xlim: int|float = None, ylim: int|float = None, color: str ='red', size: int|float = 0.5, title: str = 'Right Ascension Vs. Declination', save_plot: bool = False, plot_title: str | None = None, save_title: str | None = None, save_default: str = 'ra_vs_dec', save_folder: str = default_folder):
     """
     Plot Right Ascension (RA) vs Declination (Dec) from a pandas DataFrame.
 
@@ -52,15 +54,17 @@ def ra_vs_dec(df: pd.DataFrame, xlim: int|float = None, ylim: int|float = None, 
         plt.ylim(ylim)
 
     if save_plot:
+        os.makedirs(save_folder, exist_ok=True)  
         safe_name = final_save.replace(" ", "_")
         filename = f"{safe_name}.pdf"
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
-        print(f"Plot saved as {filename}")
+        filepath = os.path.join(save_folder, filename)
+        plt.savefig(filepath, dpi=300, bbox_inches='tight')
+        print(f"Plot saved as {filepath}")
 
     plt.show()
 
 #Proper motion
-def pmra_vs_pmdec(df: pd.DataFrame, xlim:float=None, ylim:float=None, color: str ='red', size: int|float = 0.5, title: str = 'Right Ascension Vs. Declination in Proper Motion Space', save_plot: bool = False, plot_title: str | None = None, save_title: str | None = None, save_default: str = 'pmra_vs_pmdec'):
+def pmra_vs_pmdec(df: pd.DataFrame, xlim:float=None, ylim:float=None, color: str ='red', size: int|float = 0.5, title: str = 'Right Ascension Vs. Declination in Proper Motion Space', save_plot: bool = False, plot_title: str | None = None, save_title: str | None = None, save_default: str = 'pmra_vs_pmdec', save_folder: str = default_folder):
     """
     Plot Right Ascension (RA) vs Declination (Dec) in proper motion space from a pandas DataFrame.
 
@@ -106,10 +110,12 @@ def pmra_vs_pmdec(df: pd.DataFrame, xlim:float=None, ylim:float=None, color: str
         plt.ylim(ylim)
 
     if save_plot:
+        os.makedirs(save_folder, exist_ok=True)
         safe_name = final_save.replace(" ", "_")
         filename = f"{safe_name}.pdf"
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
-        print(f"Plot saved as {filename}")
+        filepath = os.path.join(save_folder, filename)
+        plt.savefig(filepath, dpi=300, bbox_inches='tight')
+        print(f"Plot saved as {filepath}")
 
     plt.show()
 
@@ -151,7 +157,7 @@ def get_bprp(phot_bp_mean_mag, phot_rp_mean_mag):
     return phot_bp_mean_mag - phot_rp_mean_mag
 
 
-def plot_hr_diagram(df, title: str = "Hertzsprung-Russell Diagram", save_plot: bool = False, plot_title: str | None = None, save_title: str | None = None, save_default: str = "hr_diagram"):
+def plot_hr_diagram(df, title: str = "Hertzsprung-Russell Diagram", save_plot: bool = False, plot_title: str | None = None, save_title: str | None = None, save_default: str = "hr_diagram", save_folder: str = default_folder):
     """Plot an HR diagram from a Gaia dataframe.
 
     Args:
@@ -174,14 +180,16 @@ def plot_hr_diagram(df, title: str = "Hertzsprung-Russell Diagram", save_plot: b
     plt.gca().invert_yaxis()
 
     if save_plot:
+        os.makedirs(save_folder, exist_ok=True)
         safe_name = final_save.replace(" ", "_")
         filename = f"{safe_name}.pdf"
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
-        print(f"Plot saved as {filename}")
+        filepath = os.path.join(save_folder, filename)
+        plt.savefig(filepath, dpi=300, bbox_inches='tight')
+        print(f"Plot saved as {filepath}")
 
     plt.show()
 
-def hist(dists, bin_num:int = 50, parallax:bool =False, title:str = "Distances histogram", save_plot: bool = False, plot_title: str | None = None, save_title: str | None = None, save_default: str = "distance_hist"):
+def hist(dists, bin_num:int = 50, parallax:bool =False, title:str = "Distances histogram", save_plot: bool = False, plot_title: str | None = None, save_title: str | None = None, save_default: str = "distance_hist", save_folder: str = default_folder):
     #Magnitude, Y-Values
 
     #Adjust if dist given in parallax
@@ -196,17 +204,19 @@ def hist(dists, bin_num:int = 50, parallax:bool =False, title:str = "Distances h
     plt.xlabel('Distance (pc)')
     plt.ylabel('Stars per bin')
     if save_plot:
+        os.makedirs(save_folder, exist_ok=True)
         safe_name = final_save.replace(" ", "_")
         filename = f"{safe_name}.pdf"
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
-        print(f"Plot saved as {filename}")
-        
+        filepath = os.path.join(save_folder, filename)
+        plt.savefig(filepath, dpi=300, bbox_inches='tight')
+        print(f"Plot saved as {filepath}")
+
     plt.show()
 
 def gaussian(x, A, sigma, mu):
     return A*(1/(sigma * np.sqrt(2*np.pi)) * np.exp(-1*(x - mu)**2 / (2*sigma**2)))
 
-def fittedHist(dists, bin_num:int =50, range:list[int] =[-500,500],parallax:bool =False, title:str = "Distances histogram", save_plot: bool = False, plot_title: str | None = None, save_title: str | None = None, save_default: str = "fitted_dist_hist"):
+def fittedHist(dists, bin_num:int =50, range:list[int] =[-500,500],parallax:bool =False, title:str = "Distances histogram", save_plot: bool = False, plot_title: str | None = None, save_title: str | None = None, save_default: str = "fitted_dist_hist", save_folder: str = default_folder):
     #Magnitude, Y-Values
     if parallax:
         dists = (1000/dists)
@@ -238,9 +248,11 @@ def fittedHist(dists, bin_num:int =50, range:list[int] =[-500,500],parallax:bool
     plt.legend()
 
     if save_plot:
+        os.makedirs(save_folder, exist_ok=True)
         safe_name = final_save.replace(" ", "_")
         filename = f"{safe_name}.pdf"
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
-        print(f"Plot saved as {filename}")
+        filepath = os.path.join(save_folder, filename)
+        plt.savefig(filepath, dpi=300, bbox_inches='tight')
+        print(f"Plot saved as {filepath}")
 
     plt.show()
