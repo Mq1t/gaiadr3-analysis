@@ -9,8 +9,10 @@ from PyAstronomy.pyTiming import pyPDM
 from .constants import JD_offset
 import os
 
+
 default_folder = "plots"
 style = 'seaborn-v0_8-darkgrid'
+plt.style.use(style)
 
 def phase(t, T_0, P):
     """
@@ -173,7 +175,6 @@ def lightcurve(
         filename = f"{safe_name}.pdf"
         plt.savefig(filepath, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filepath}")
-    plt.style.use(style)
     plt.show()
 
 #t is times in julian days. If time is given in non-julian date already then jd = False when calling the function.
@@ -298,7 +299,6 @@ def plot_ls(
         filepath = os.path.join(save_folder, filename)
         plt.savefig(filepath, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filepath}")
-    plt.style.use(style)
     plt.show()
 
 def pdm(t: pd.DataFrame, 
@@ -369,5 +369,4 @@ def plot_pdm(frequencies, theta, best_period:float = None, save:bool=False, titl
         filepath = os.path.join(save_folder, filename)
         plt.savefig(filepath, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filepath}")
-    plt.style.use(style)
     plt.show()
