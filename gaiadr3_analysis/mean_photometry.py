@@ -5,6 +5,7 @@ from scipy.optimize import curve_fit
 import os
 
 default_folder = "plots" 
+style = 'seaborn-v0_8-darkgrid'
 
 #Create a Ra vs Dec diagram.
 def ra_vs_dec(df: pd.DataFrame, xlim: int|float = None, ylim: int|float = None, color: str ='red', size: int|float = 0.5, title: str = 'Right Ascension Vs. Declination', save_plot: bool = False, plot_title: str | None = None, save_title: str | None = None, save_default: str = 'ra_vs_dec', save_folder: str = default_folder):
@@ -60,7 +61,7 @@ def ra_vs_dec(df: pd.DataFrame, xlim: int|float = None, ylim: int|float = None, 
         filepath = os.path.join(save_folder, filename)
         plt.savefig(filepath, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filepath}")
-
+    plt.style.use(style)
     plt.show()
 
 #Proper motion
@@ -116,7 +117,7 @@ def pmra_vs_pmdec(df: pd.DataFrame, xlim:float=None, ylim:float=None, color: str
         filepath = os.path.join(save_folder, filename)
         plt.savefig(filepath, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filepath}")
-
+    plt.style.use(style)
     plt.show()
 
 def get_distance(parallax):
@@ -172,7 +173,7 @@ def plot_hr_diagram(df, title: str = "Hertzsprung-Russell Diagram", save_plot: b
     final_title = plot_title if plot_title is not None else title
     final_save = save_title if save_title is not None else save_default
 
-    plt.scatter(bprp, magnitude, c="white", s=1)
+    plt.scatter(bprp, magnitude, c="purple", s=1)
     plt.xlabel("BP - RP")
     plt.ylabel("Absolute Magnitude")
     plt.title(final_title)
@@ -185,7 +186,7 @@ def plot_hr_diagram(df, title: str = "Hertzsprung-Russell Diagram", save_plot: b
         filepath = os.path.join(save_folder, filename)
         plt.savefig(filepath, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filepath}")
-
+    plt.style.use(style)
     plt.show()
 
 def hist(dists, bin_num:int = 50, parallax:bool =False, title:str = "Distances histogram", save_plot: bool = False, plot_title: str | None = None, save_title: str | None = None, save_default: str = "distance_hist", save_folder: str = default_folder):
@@ -209,7 +210,7 @@ def hist(dists, bin_num:int = 50, parallax:bool =False, title:str = "Distances h
         filepath = os.path.join(save_folder, filename)
         plt.savefig(filepath, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filepath}")
-
+    plt.style.use(style)
     plt.show()
 
 def gaussian(x, A, sigma, mu):
@@ -253,5 +254,5 @@ def fittedHist(dists, bin_num:int =50, range:list[int] =[-500,500],parallax:bool
         filepath = os.path.join(save_folder, filename)
         plt.savefig(filepath, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filepath}")
-
+    plt.style.use(style)
     plt.show()
