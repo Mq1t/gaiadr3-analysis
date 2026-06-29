@@ -172,7 +172,6 @@ def plot_hr_diagram(df, title: str = "Hertzsprung-Russell Diagram", save_plot: b
     final_title = plot_title if plot_title is not None else title
     final_save = save_title if save_title is not None else save_default
 
-    plt.style.use("dark_background")
     plt.scatter(bprp, magnitude, c="white", s=1)
     plt.xlabel("BP - RP")
     plt.ylabel("Absolute Magnitude")
