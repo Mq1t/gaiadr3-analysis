@@ -245,7 +245,7 @@ def lomb_scargle(
 
     
     if plot:
-        plot_ls(period_days=period_days, power=power, title=plot_title, xlims=xlims, save_plot=save_plot, save_name=save_title)
+        plot_ls(period_days=period_days, power=power, title=plot_title, xlims=xlims, save_plot=save_plot, save_name=save_title, save_folder=save_folder)
     
     #return data
     return (pd.DataFrame({"period":period_days, "power":power, "Fasle Alarm Probability":FAP}))
@@ -346,7 +346,7 @@ def pdm(t: pd.DataFrame,
     print("Best period =", best_period, "days")
 
     if plot == True:
-        plot_pdm(frequencies=frequencies, theta=theta, best_period=best_period, save=save_plot, title=plot_title, save_name=save_title)
+        plot_pdm(frequencies=frequencies, theta=theta, best_period=best_period, save=save_plot, title=plot_title, save_name=save_title, save_folder=save_folder)
     
     return (pd.DataFrame({"frequency":frequencies, "theta":theta}))
 
