@@ -1,9 +1,8 @@
 """Tests for mean_photometry.py
 
-Tests cover input validation for ra_vs_dec and pmra_vs_pmdec, unit tests
-for get_distance, get_magnitude, get_bprp, and gaussian, and smoke tests
-for plot_hr_diagram, hist, and fittedHist. Matplotlib rendering is patched
-out so tests run without a display.
+Tests cover input validation for ra_vs_dec and pmra_vs_pmdec, unit tests for get_distance, get_magnitude, 
+get_bprp, and gaussian, and smoke tests for plot_hr_diagram, hist, and fittedHist. Matplotlib rendering 
+is patched out so tests run without a display.
 """
 
 import pytest
@@ -19,7 +18,7 @@ from gaiadr3_analysis.mean_photometry import (
 
 # Fixtures
 @pytest.fixture
-def sky_df():
+def mean_df():
     """Returns a DataFrame with ra and dec columns for position plot tests.
 
     Returns:
@@ -59,7 +58,7 @@ def hr_df():
 
 @pytest.fixture
 def distances():
-    """Returns a pandas Series of distance values for histogram tests.
+    """Returns a pandas series of distance values for histogram tests.
 
     Returns:
         pd.Series: Distance values in parsecs.
@@ -73,50 +72,50 @@ def test_ra_vs_dec_raises_type_error_for_non_dataframe():
     with pytest.raises(TypeError):
         ra_vs_dec([1, 2, 3])
 
-def test_ra_vs_dec_raises_key_error_for_missing_ra(sky_df):
+def test_ra_vs_dec_raises_key_error_for_missing_ra(mean_df):
     """Checks that ra_vs_dec raises KeyError when the ra column is missing.
 
     Args:
-        sky_df (pd.DataFrame): Sample sky position DataFrame fixture.
+        mean_df (pd.DataFrame): Sample sky position DataFrame fixture.
     """
     with pytest.raises(KeyError):
-        ra_vs_dec(sky_df.drop(columns=["ra"]))
+        ra_vs_dec(mean_df.drop(columns=["ra"]))
 
-def test_ra_vs_dec_raises_key_error_for_missing_dec(sky_df):
+def test_ra_vs_dec_raises_key_error_for_missing_dec(mean_df):
     """Checks that ra_vs_dec raises KeyError when the dec column is missing.
 
     Args:
-        sky_df (pd.DataFrame): Sample sky position DataFrame fixture.
+        mean_df (pd.DataFrame): Sample sky position DataFrame fixture.
     """
     with pytest.raises(KeyError):
-        ra_vs_dec(sky_df.drop(columns=["dec"]))
+        ra_vs_dec(mean_df.drop(columns=["dec"]))
 
-def test_ra_vs_dec_runs_without_error(sky_df):
+def test_ra_vs_dec_runs_without_error(mean_df):
     """Checks that ra_vs_dec completes without error on valid input.
 
     Args:
-        sky_df (pd.DataFrame): Sample sky position DataFrame fixture.
+        mean_df (pd.DataFrame): Sample sky position DataFrame fixture.
     """
     with patch("matplotlib.pyplot.show"):
-        ra_vs_dec(sky_df)
+        ra_vs_dec(mean_df)
 
-def test_ra_vs_dec_accepts_custom_title(sky_df):
+def test_ra_vs_dec_accepts_custom_title(mean_df):
     """Checks that ra_vs_dec accepts a custom title without raising an error.
 
     Args:
-        sky_df (pd.DataFrame): Sample sky position DataFrame fixture.
+        mean_df (pd.DataFrame): Sample sky position DataFrame fixture.
     """
     with patch("matplotlib.pyplot.show"):
-        ra_vs_dec(sky_df, title="My Custom Title")
+        ra_vs_dec(mean_df, title="My Custom Title")
 
-def test_ra_vs_dec_accepts_xlim_and_ylim(sky_df):
+def test_ra_vs_dec_accepts_xlim_and_ylim(mean_df):
     """Checks that ra_vs_dec accepts xlim and ylim without raising an error.
 
     Args:
-        sky_df (pd.DataFrame): Sample sky position DataFrame fixture.
+        mean_df (pd.DataFrame): Sample sky position DataFrame fixture.
     """
     with patch("matplotlib.pyplot.show"):
-        ra_vs_dec(sky_df, xlim=50.0, ylim=50.0)
+        ra_vs_dec(mean_df, xlim=50.0, ylim=50.0)
 
 
 # pmra_vs_pmdec
@@ -166,19 +165,16 @@ def test_pmra_vs_pmdec_accepts_custom_title(proper_motion_df):
 def test_get_distance_known_value():
     """Checks that get_distance returns the correct distance for a known parallax."""
     result = get_distance(10.0)
-
     assert result == pytest.approx(100.0)
 
 def test_get_distance_one_kiloparsec():
     """Checks that get_distance returns 1000 pc for a parallax of 1 mas."""
     result = get_distance(1.0)
-
     assert result == pytest.approx(1000.0)
 
 def test_get_distance_returns_float():
     """Checks that get_distance returns a numeric result."""
     result = get_distance(5.0)
-
     assert isinstance(result, float)
 
 
@@ -186,7 +182,6 @@ def test_get_distance_returns_float():
 def test_get_magnitude_at_10_parsecs():
     """Checks that apparent and absolute magnitude are equal at 10 pc."""
     result = get_magnitude(8.0, 10.0)
-
     assert result == pytest.approx(8.0)
 
 def test_get_magnitude_known_value():
@@ -199,7 +194,6 @@ def test_get_magnitude_farther_star_is_dimmer():
     """Checks that a more distant star has a lower (brighter) absolute magnitude."""
     m_near = get_magnitude(10.0, 50.0)
     m_far = get_magnitude(10.0, 500.0)
-
     assert m_near > m_far
 
 
@@ -207,19 +201,16 @@ def test_get_magnitude_farther_star_is_dimmer():
 def test_get_bprp_known_value():
     """Checks that get_bprp returns the correct BP-RP colour index."""
     result = get_bprp(10.5, 9.0)
-
     assert result == pytest.approx(1.5)
 
 def test_get_bprp_zero_for_equal_magnitudes():
     """Checks that get_bprp returns 0.0 when BP and RP magnitudes are equal."""
     result = get_bprp(9.0, 9.0)
-
     assert result == pytest.approx(0.0)
 
 def test_get_bprp_negative_for_red_star():
     """Checks that get_bprp returns a negative value when RP is brighter than BP."""
     result = get_bprp(9.0, 10.0)
-
     assert result < 0.0
 
 
@@ -228,20 +219,17 @@ def test_gaussian_peak_at_mu():
     """Checks that gaussian returns its maximum at x = mu."""
     result_at_mu = gaussian(5.0, A=1.0, sigma=1.0, mu=5.0)
     result_offset = gaussian(6.0, A=1.0, sigma=1.0, mu=5.0)
-
     assert result_at_mu > result_offset
 
 def test_gaussian_returns_positive():
     """Checks that gaussian returns a positive value for standard inputs."""
     result = gaussian(0.0, A=1.0, sigma=1.0, mu=0.0)
-
     assert result > 0.0
 
 def test_gaussian_symmetry():
     """Checks that gaussian is symmetric around mu."""
     left = gaussian(4.0, A=1.0, sigma=1.0, mu=5.0)
     right = gaussian(6.0, A=1.0, sigma=1.0, mu=5.0)
-
     assert left == pytest.approx(right)
 
 
@@ -309,9 +297,8 @@ def test_fitted_hist_runs_without_error(distances):
 def test_fitted_hist_runs_with_parallax_conversion():
     """Checks that fittedHist runs without error when parallax conversion is enabled.
 
-    Uses a larger synthetic parallax dataset centred around 5 mas so that
-    curve_fit has a well-shaped histogram to converge on after 1000/parallax
-    conversion.
+    Uses a larger synthetic parallax dataset centred around 5 mas so that curve_fit has a well-shaped histogram
+    to converge on after 1000/parallax conversion.
     """
     rng = np.random.default_rng(42)
     parallax_values = pd.Series(rng.normal(loc=5.0, scale=0.5, size=200))

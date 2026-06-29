@@ -1,8 +1,7 @@
 """Tests for epoch_photometry.py
 
-Tests cover the phase calculation function and input validation
-for lightcurve, lomb_scargle, and pdm. Matplotlib rendering is patched
-out so tests run headlessly without a display.
+Tests cover the phase calculation function and input validation for lightcurve, lomb_scargle, and pdm. 
+Matplotlib rendering is patched out so tests run without a display.
 """
 
 import pytest
@@ -13,7 +12,7 @@ from gaiadr3_analysis.epoch_photometry import phase, lightcurve, lomb_scargle, p
 
 # Fixtures
 @pytest.fixture
-def photometry_df():
+def epoch_df():
     """Returns a minimal epoch photometry DataFrame for lightcurve tests.
 
     Returns:
@@ -34,7 +33,7 @@ def photometry_df():
 
 @pytest.fixture
 def time_series():
-    """Returns a simple time and magnitude array for lomb_scargle and pdm tests.
+    """Returns a time and magnitude array for lomb_scargle and pdm tests.
 
     Returns:
         tuple: (t, mag) as pandas Series with 50 evenly spaced points.
@@ -56,33 +55,28 @@ def test_phase_output_in_range():
 def test_phase_at_reference_epoch_is_zero():
     """Checks that phase is 0.0 when t equals T_0."""
     result = phase(np.array([5.0]), T_0=5.0, P=3.0)
-
     assert result[0] == pytest.approx(0.0)
 
 def test_phase_one_full_period_is_zero():
     """Checks that t = T_0 + P wraps back to phase 0.0."""
     result = phase(np.array([8.0]), T_0=5.0, P=3.0)
-
     assert result[0] == pytest.approx(0.0)
 
 def test_phase_half_period_is_point_five():
     """Checks that t = T_0 + P/2 gives phase 0.5."""
     result = phase(np.array([6.5]), T_0=5.0, P=3.0)
-
     assert result[0] == pytest.approx(0.5)
 
 def test_phase_returns_numpy_array():
     """Checks that phase always returns a numpy array."""
     t = np.array([1.0, 2.0, 3.0])
     result = phase(t, T_0=0.0, P=2.0)
-
     assert isinstance(result, np.ndarray)
 
 def test_phase_handles_array_input():
     """Checks that phase correctly handles a multi-element array."""
     t = np.array([0.0, 1.0, 2.0, 3.0])
     result = phase(t, T_0=0.0, P=2.0)
-
     assert len(result) == 4
 
 
@@ -98,55 +92,55 @@ def test_lightcurve_raises_key_error_for_missing_columns():
     with pytest.raises(KeyError):
         lightcurve(df)
 
-def test_lightcurve_runs_overplot_mode(photometry_df):
+def test_lightcurve_runs_overplot_mode(epoch_df):
     """Checks that lightcurve runs without error in overplot mode.
 
     Args:
-        photometry_df (pd.DataFrame): Sample photometry DataFrame fixture.
+        epoch_df (pd.DataFrame): Sample photometry DataFrame fixture.
     """
     with patch("matplotlib.pyplot.show"):
-        lightcurve(photometry_df, overplot=True)
+        lightcurve(epoch_df, overplot=True)
 
-def test_lightcurve_runs_subplot_mode(photometry_df):
+def test_lightcurve_runs_subplot_mode(epoch_df):
     """Checks that lightcurve runs without error in subplot mode.
 
     Args:
-        photometry_df (pd.DataFrame): Sample photometry DataFrame fixture.
+        epoch_df (pd.DataFrame): Sample photometry DataFrame fixture.
     """
     with patch("matplotlib.pyplot.show"):
-        lightcurve(photometry_df, overplot=False)
+        lightcurve(epoch_df, overplot=False)
 
-def test_lightcurve_runs_with_period(photometry_df):
+def test_lightcurve_runs_with_period(epoch_df):
     """Checks that lightcurve runs without error when period is provided.
 
     Args:
-        photometry_df (pd.DataFrame): Sample photometry DataFrame fixture.
+        epoch_df (pd.DataFrame): Sample photometry DataFrame fixture.
     """
     with patch("matplotlib.pyplot.show"):
-        lightcurve(photometry_df, period=5.0)
+        lightcurve(epoch_df, period=5.0)
 
-def test_lightcurve_runs_with_rejectflags(photometry_df):
+def test_lightcurve_runs_with_rejectflags(epoch_df):
     """Checks that lightcurve runs without error when rejectflags is True.
 
     Args:
-        photometry_df (pd.DataFrame): Sample photometry DataFrame fixture.
+        epoch_df (pd.DataFrame): Sample photometry DataFrame fixture.
     """
     with patch("matplotlib.pyplot.show"):
-        lightcurve(photometry_df, rejectflags=True)
+        lightcurve(epoch_df, rejectflags=True)
 
-def test_lightcurve_runs_with_xlims_and_ylims(photometry_df):
+def test_lightcurve_runs_with_xlims_and_ylims(epoch_df):
     """Checks that lightcurve accepts xlims and ylims without error.
 
     Args:
-        photometry_df (pd.DataFrame): Sample photometry DataFrame fixture.
+        epoch_df (pd.DataFrame): Sample photometry DataFrame fixture.
     """
     with patch("matplotlib.pyplot.show"):
-        lightcurve(photometry_df, xlims=(0, 100), ylims=(11, 14))
+        lightcurve(epoch_df, xlims=(0, 100), ylims=(11, 14))
 
 
 # lomb_scargle
-def test_lomb_scargle_returns_float(time_series):
-    """Checks that lomb_scargle returns a float value.
+def test_lomb_scargle_returns_dataframe_with_expected_columns(time_series):
+    """Checks that lomb_scargle returns a DataFrame with the periodogram columns.
 
     Args:
         time_series (tuple): Sample (t, mag) time series fixture.
@@ -154,27 +148,30 @@ def test_lomb_scargle_returns_float(time_series):
     t, mag = time_series
     result = lomb_scargle(t, mag)
 
-    assert isinstance(result, float)
+    assert isinstance(result, pd.DataFrame)
+    assert list(result.columns) == ["period", "power", "Fasle Alarm Probability"]
 
-def test_lomb_scargle_returns_positive_period(time_series):
-    """Checks that lomb_scargle returns a positive period value.
+def test_lomb_scargle_best_period_is_positive(time_series):
+    """Checks that the best-fit period (highest power row) is a positive value.
 
     Args:
         time_series (tuple): Sample (t, mag) time series fixture.
     """
     t, mag = time_series
     result = lomb_scargle(t, mag)
+    best_period = result.loc[result["power"].idxmax(), "period"]
 
-    assert result > 0.0
+    assert best_period > 0.0
 
-def test_lomb_scargle_default_example_returns_float():
-    """Checks that lomb_scargle returns a float when called with no arguments."""
+def test_lomb_scargle_default_example_returns_dataframe():
+    """Checks that lomb_scargle returns a periodogram DataFrame when called with no arguments."""
     result = lomb_scargle()
 
-    assert isinstance(result, float)
+    assert isinstance(result, pd.DataFrame)
+    assert "period" in result.columns
 
-def test_lomb_scargle_with_period_range(time_series):
-    """Checks that lomb_scargle respects a custom period_range.
+def test_lomb_scargle_period_column_respects_period_range(time_series):
+    """Checks that the searched periods stay within a custom period_range.
 
     Args:
         time_series (tuple): Sample (t, mag) time series fixture.
@@ -182,7 +179,8 @@ def test_lomb_scargle_with_period_range(time_series):
     t, mag = time_series
     result = lomb_scargle(t, mag, period_range=[1.0, 20.0])
 
-    assert 1.0 <= result <= 20.0
+    assert result["period"].min() >= 0.9
+    assert result["period"].max() <= 20.1
 
 def test_lomb_scargle_plot_runs_without_error(time_series):
     """Checks that lomb_scargle runs without error when plot is True.
@@ -196,8 +194,8 @@ def test_lomb_scargle_plot_runs_without_error(time_series):
 
 
 # pdm
-def test_pdm_returns_float(time_series):
-    """Checks that pdm returns a float value.
+def test_pdm_returns_dataframe_with_expected_columns(time_series):
+    """Checks that pdm returns a DataFrame with the documented frequency/theta columns.
 
     Args:
         time_series (tuple): Sample (t, mag) time series fixture.
@@ -205,21 +203,24 @@ def test_pdm_returns_float(time_series):
     t, mag = time_series
     result = pdm(t, mag)
 
-    assert isinstance(result, float)
+    assert isinstance(result, pd.DataFrame)
+    assert list(result.columns) == ["frequency", "theta"]
 
-def test_pdm_returns_positive_period(time_series):
-    """Checks that pdm returns a positive period value.
+def test_pdm_best_period_is_positive(time_series):
+    """Checks that the best-fit period is a positive value.
 
     Args:
         time_series (tuple): Sample (t, mag) time series fixture.
     """
     t, mag = time_series
     result = pdm(t, mag)
+    best_frequency = result.loc[result["theta"].idxmin(), "frequency"]
+    best_period = 1.0 / best_frequency
 
-    assert result > 0.0
+    assert best_period > 0.0
 
-def test_pdm_custom_freq_range(time_series):
-    """Checks that pdm respects a custom freq_range and returns a period within it.
+def test_pdm_frequency_column_respects_freq_range(time_series):
+    """Checks that pdm respects a custom freq_range when searching frequencies.
 
     Args:
         time_series (tuple): Sample (t, mag) time series fixture.
@@ -227,7 +228,8 @@ def test_pdm_custom_freq_range(time_series):
     t, mag = time_series
     result = pdm(t, mag, freq_range=[0.1, 2.0, 0.01])
 
-    assert result >= 1 / 2.0
+    assert result["frequency"].min() >= 0.1
+    assert result["frequency"].max() <= 2.0
 
 def test_pdm_plot_runs_without_error(time_series):
     """Checks that pdm runs without error when plot is True.
@@ -239,8 +241,8 @@ def test_pdm_plot_runs_without_error(time_series):
     with patch("matplotlib.pyplot.show"):
         pdm(t, mag, plot=True)
 
-def test_pdm_custom_bins_and_covers(time_series):
-    """Checks that pdm accepts custom bins and covers without error.
+def test_pdm_custom_bins_and_covers_returns_dataframe(time_series):
+    """Checks that pdm accepts custom bins and covers and still returns a DataFrame.
 
     Args:
         time_series (tuple): Sample (t, mag) time series fixture.
@@ -248,4 +250,4 @@ def test_pdm_custom_bins_and_covers(time_series):
     t, mag = time_series
     result = pdm(t, mag, bins=30, covers=2)
 
-    assert isinstance(result, float)
+    assert isinstance(result, pd.DataFrame)

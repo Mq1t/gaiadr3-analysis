@@ -28,9 +28,12 @@ dependencies = [
     "pandas>=1.4",
     "matplotlib>=3.5",
     "scipy>=1.8",
-    "astroquery>=0.4",
+    "astroquery>=0.4.8",
     "PyAstronomy>=0.18",
 ]
+
+[project.optional-dependencies]
+test = ["pytest>=7.0"]
 
 [tool.setuptools.packages.find]
 exclude = ["tests*", "docs*"]
