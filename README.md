@@ -1,2 +1,5 @@
 # gaiadr3-analysis
-READE: This is an practice for initial functions for analyzing stars in the Gaia DR3 database. This is only to have a basis for a file pipeline for the Gaia DR4 release once it comes out.
+README:
+This is a set of tools and functions for the purpose of analysing Gaia DR3 data (soon to be DR4). 
+
+Install using pip install git+
