@@ -37,10 +37,8 @@ def lightcurve(
         period:float=None, 
         xlims:tuple[int|float, int|float]=None, 
         ylims:tuple[int|float, int|float]=None, 
-        plot_title: str | None = None, 
         save_plot: bool = False, 
-        save_title: str | None = None, 
-        save_default: str = "lightcurve",
+        file_name: str = "lightcurve",
         save_folder: str = default_folder):
     """
     Plot G, Bp and Rp magnitude light curves in time.
@@ -108,16 +106,13 @@ def lightcurve(
     y_bp = bp_df[bp]
     y_rp = rp_df[rp]
 
-    final_title = plot_title if plot_title is not None else title
-    final_save = save_title if save_title is not None else save_default
-
     if overplot is True:
         plt.xlabel(x_label)
         plt.ylabel("Band (app mag)")
         plt.scatter(x_g, y_g, c ='green', s = 3, label='G Band')
         plt.scatter(x_rp, y_rp, c ='red', s = 3, label='Rp Band')
         plt.scatter(x_bp, y_bp, c ='blue', s = 3, label='Bp Band')
-        plt.title(final_title)
+        plt.title(title)
         plt.legend()
         plt.gca().invert_yaxis()
         if xlims is not None:
@@ -169,10 +164,13 @@ def lightcurve(
     plt.tight_layout()
 
     if save_plot:
-        os.makedirs(save_folder, exist_ok=True)
-        safe_name = final_save.replace(" ", "_")
-        filepath = os.path.join(save_folder, f"{safe_name}.pdf")
-        filename = f"{safe_name}.pdf"
+        safe_name = file_name.replace(" ", "_")
+        safe_name = f"{safe_name}.pdf"
+        if default_folder is not None:
+            os.makedirs(save_folder, exist_ok=True)
+            filepath = os.path.join(save_folder, safe_name)
+        else:
+            filepath = safe_name
         plt.savefig(filepath, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filepath}")
     plt.show()
@@ -187,9 +185,11 @@ def lomb_scargle(
     period_range: list[float] = None, 
     xlims: list[float] = None, 
     jd: bool=True, 
+    save_data: bool = False,
+    data_file: str = "ls_data", 
     plot:bool=False, 
     save_plot: bool = False,
-    save_title: str = "ls_plot", 
+    plot_file: str = "ls_plot", 
     save_folder: str = default_folder
 ):
     """
@@ -245,12 +245,24 @@ def lomb_scargle(
     #False Alarm Probabilities
     FAP = [ls.false_alarm_probability(p) for p in power]
 
-    
+    df = pd.DataFrame({"period":period_days, "power":power, "False Alarm Probability":FAP})
+
     if plot:
-        plot_ls(period_days=period_days, power=power, title=plot_title, xlims=xlims, save_plot=save_plot, save_name=save_title, save_folder=save_folder)
-    
+        plot_ls(period_days=period_days, power=power, title=plot_title, xlims=xlims, save=save_plot, file_name=plot_file, save_folder=save_folder)
+    if save_data:
+        os.makedirs(save_folder, exist_ok=True)
+        safe_name = data_file.replace(" ", "_")
+        safe_name = f"{safe_name}.csv"
+        if default_folder is not None:
+            os.makedirs(save_folder, exist_ok=True)
+            filepath = os.path.join(save_folder, safe_name)
+        else:
+            filepath = safe_name
+        df.to_csv(filepath)
+        print(f"Data saved as {filepath}")
+
     #return data
-    return (pd.DataFrame({"period":period_days, "power":power, "Fasle Alarm Probability":FAP}))
+    return (df)
 
 
 def plot_ls(
@@ -258,8 +270,8 @@ def plot_ls(
         power:pd.DataFrame, 
         title:str, 
         xlims=None, 
-        save_plot:bool = False, 
-        save_name:str="ls_plot", 
+        save:bool = False, 
+        file_name:str="ls_plot", 
         save_folder: str = default_folder
     ):
     fig, ax = plt.subplots(figsize=(8,5))
@@ -292,11 +304,14 @@ def plot_ls(
     sub_ax.set_xlabel("Period (hours)")
     sub_ax.grid(True)
     
-    if save_plot:
-        os.makedirs(save_folder, exist_ok=True)
-        safe_name = save_name.replace(" ", "_")
-        filename = f"{safe_name}.pdf"
-        filepath = os.path.join(save_folder, filename)
+    if save:
+        safe_name = file_name.replace(" ", "_")
+        safe_name = f"{safe_name}.pdf"
+        if default_folder is not None:
+            os.makedirs(save_folder, exist_ok=True)
+            filepath = os.path.join(save_folder, safe_name)
+        else:
+            filepath = safe_name
         plt.savefig(filepath, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filepath}")
     plt.show()
@@ -309,7 +324,9 @@ def pdm(t: pd.DataFrame,
         freq_range:list[int|float] = [0.01, 10.0, 0.001], 
         plot = False, 
         save_plot: bool = False,
-        save_title: str = "pdm_plot", 
+        plot_file: str = "pdm_plot", 
+        save_data: bool = False,
+        data_file: str = "pdm_data",
         save_folder: str = default_folder
     ):
     """
@@ -343,15 +360,30 @@ def pdm(t: pd.DataFrame,
 
     best_frequency = frequencies[np.argmin(theta)]
     best_period = 1.0 / best_frequency
+    periods = [(1.0/f) for f in frequencies]
 
     print("Best period =", best_period, "days")
 
     if plot == True:
-        plot_pdm(frequencies=frequencies, theta=theta, best_period=best_period, save=save_plot, title=plot_title, save_name=save_title, save_folder=save_folder)
+        plot_pdm(frequencies=frequencies, theta=theta, best_period=best_period, save=save_plot, title=plot_title, file_name=plot_file, save_folder=save_folder)
     
-    return (pd.DataFrame({"frequency":frequencies, "theta":theta}))
+    df = pd.DataFrame({"period":periods, "frequency":frequencies, "theta":theta})
 
-def plot_pdm(frequencies, theta, best_period:float = None, save:bool=False, title:str= "PDM Plot", save_name:str="pdm_plot", save_folder: str = default_folder):
+    if save_data:
+        os.makedirs(save_folder, exist_ok=True)
+        safe_name = data_file.replace(" ", "_")
+        safe_name = f"{safe_name}.csv"
+        if default_folder is not None:
+            os.makedirs(save_folder, exist_ok=True)
+            filepath = os.path.join(save_folder, safe_name)
+        else:
+            filepath = safe_name
+        df.to_csv(filepath)
+        print(f"Data saved as {filepath}")
+    
+    return (df)
+
+def plot_pdm(frequencies, theta, best_period:float = None, save:bool=False, title:str= "PDM Plot", file_name:str="pdm_plot", save_folder: str = default_folder):
     plt.figure(figsize=(8,5))
     plt.plot(1/frequencies, theta, 'k-')
     if(best_period is not None):
@@ -363,10 +395,13 @@ def plot_pdm(frequencies, theta, best_period:float = None, save:bool=False, titl
     plt.title(title)
 
     if save:
-        os.makedirs(save_folder, exist_ok=True)
-        safe_name = save_name.replace(" ", "_")
-        filename = f"{safe_name}.pdf"
-        filepath = os.path.join(save_folder, filename)
+        safe_name = file_name.replace(" ", "_")
+        safe_name = f"{safe_name}.pdf"
+        if default_folder is not None:
+            os.makedirs(save_folder, exist_ok=True)
+            filepath = os.path.join(save_folder, safe_name)
+        else:
+            filepath = safe_name
         plt.savefig(filepath, dpi=300, bbox_inches='tight')
         print(f"Plot saved as {filepath}")
     plt.show()
