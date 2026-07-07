@@ -390,7 +390,6 @@ def plot_pdm(frequencies, theta, best_period:float = None, save:bool=False, titl
         plt.axvline(best_period, c='red', label=f"Best Period: {best_period:6f} days")
     plt.xlabel("Period (days)")
     plt.ylabel("Theta")
-    plt.gca().invert_xaxis()
     plt.legend()
     plt.title(title)
 
