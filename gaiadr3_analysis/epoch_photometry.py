@@ -52,6 +52,9 @@ def lightcurve(
         period (float, optional): If provided, fold times on this period (phase plot). Defaults to None.
         xlims (tuple[float, float] or None, optional): X-axis limits. Defaults to None.
         ylims (tuple[float, float] or None, optional): Y-axis limits. Defaults to None.
+        save_plot (bool, optional): If true, saves plot as a PDF file. Defaults to False. 
+        file_name (str, optional): File name of the resulting plot. Default is "lightcurve". File identifier is added automatically.
+        save_folder (str, optional): Optional folder destination. A destination folder could also be set using the file name.
 
     Raises:
         TypeError: If the input data is not a pandas DataFrame.
@@ -198,16 +201,20 @@ def lomb_scargle(
     Args:
         t (array-like): Time values (JD or relative). If None, synthetic data is used as an example.
         mag (array-like): Magnitudes or fluxes corresponding to 't'. If None, synthetic data is used as an example.
+        plot_title (str, optional): Display title for the corresponding plot. Defaults to 'Lomb-Scargle Periodogram'.
         period_range (list[float], optional): [P_min, P_max] search range in days. If None, it is estimated using the Nyquist frequency.
         xlims (list[float], optional): X-axis limits for period plot (days).
         jd (bool, optional): If True, convert JD times to relative by subtracting the minimum. Defaults to True.
-        plot (bool, optional): If True, display the periodogram and an inset zoom around the best period. Defaults to False.
+        save_data (bool, optional): If true, saves plot as a CSV file. Defaults to False. 
+        data_file (str, optional): File name of the resulting data. Default is "ls_data". File identifier is added automatically.
+        plot (bool, optional): If True, display the Lomb-Scargle analysis and an inset zoom around the best period. Defaults to False.
+        save_plot (bool, optional): If true, saves plot as a PDF file. Defaults to False. 
+        plot_file (str, optional): File name of the resulting plot. Default is "ls_plot". File identifier is added automatically.
+        save_folder (str, optional): Optional folder destination. A destination folder could also be set using the file name.
+
 
     Returns:
-        float: Best fit period in days (float).
-
-    Notes:
-        The function prints the top 5 candidate periods and their false-alarm probabilities (FAP).
+        pandas.DataFrame(): A pandas data frame containing to following columns: ["period", "power", "false alarm probability"].
     """
     # Default example for if t & y are not inputted.
     if t is None or mag is None:
@@ -245,7 +252,7 @@ def lomb_scargle(
     #False Alarm Probabilities
     FAP = [ls.false_alarm_probability(p) for p in power]
 
-    df = pd.DataFrame({"period":period_days, "power":power, "False Alarm Probability":FAP})
+    df = pd.DataFrame({"period":period_days, "power":power, "false alarm probability":FAP})
 
     if plot:
         plot_ls(period_days=period_days, power=power, title=plot_title, xlims=xlims, save=save_plot, file_name=plot_file, save_folder=save_folder)
@@ -316,17 +323,18 @@ def plot_ls(
         print(f"Plot saved as {filepath}")
     plt.show()
 
-def pdm(t: pd.DataFrame, 
+def pdm(
+        t: pd.DataFrame, 
         mag: pd.DataFrame, 
         plot_title:str='Phase Dispersion Minimization', 
         bins:int|float = 50, 
         covers:int = 3, 
         freq_range:list[int|float] = [0.01, 10.0, 0.001], 
         plot = False, 
-        save_plot: bool = False,
-        plot_file: str = "pdm_plot", 
         save_data: bool = False,
         data_file: str = "pdm_data",
+        save_plot: bool = False,
+        plot_file: str = "pdm_plot", 
         save_folder: str = default_folder
     ):
     """
@@ -335,14 +343,20 @@ def pdm(t: pd.DataFrame,
     Args:
         t (array-like): Time values (JD or relative).
         mag (array-like): Magnitudes or fluxes corresponding to 't'. 
+        plot_title (str, optional): Display title for the corresponding plot. Defaults to 'Phase Dispersion Minimization'.
         bins (int, optional): Number of bins to be used in the PDM analysis. Defaults to 50.
         covers (int, optional): Number of covers to be uesd in the PDM analysis. Defaults to 3.
         freq_range (list[float], optional): Frequency range of the PDM analysis, defaults to [0.01, 10.0, 0.001], 
             where the third value is increment.
         plot (bool, optional): If True, display the PDM analysis as a plot. Defaults to False.
+        save_data (bool, optional): If true, saves plot as a CSV file. Defaults to False. 
+        data_file (str, optional): File name of the resulting data. Default is "pdm_data". File identifier is added automatically.
+        save_plot (bool, optional): If true, saves plot as a PDF file. Defaults to False. 
+        plot_file (str, optional): File name of the resulting plot. Default is "pdm_plot". File identifier is added automatically.
+        save_folder (str, optional): Optional folder destination. A destination folder could also be set using the file name.
 
     Returns:
-        float: Best fit period in days (float).
+        pandas.DataFrame(): A pandas data frame containing to following columns: ["period", "frequency", "theta"].
     """
     # Define trial frequencies
     fmin = freq_range[0]
