@@ -30,6 +30,9 @@ def ra_vs_dec(
         color (str, optional): Color of the plotted points. Default is 'red'.
         size (int|float, optional): Size of the plotted points. Default is 0.5.
         title (str, optional): Title of the plot. Default is 'Right Ascension Vs. Declination'.
+        save_plot (bool, optional): If true, saves plot as a PDF file. Defaults to False. 
+        file_name (str, optional): File name of the resulting plot. Default is 'ra_vs_dec'. File identifier is added automatically.
+        save_folder (str, optional): Optional folder destination. A destination folder could also be set using the file name.
     
     Returns:
         None
@@ -95,6 +98,9 @@ def pmra_vs_pmdec(
         color (str, optional): Color of the plotted points. Default is 'red'.
         size (int|float, optional): Size of the plotted points. Default is 0.5.
         title (str, optional): Title of the plot. Default is 'Right Ascension Vs. Declination in Proper Motion Space'.
+        save_plot (bool, optional): If true, saves plot as a PDF file. Defaults to False. 
+        file_name (str, optional): File name of the resulting plot. Default is 'pmra_vs_pmdec'. File identifier is added automatically.
+        save_folder (str, optional): Optional folder destination. A destination folder could also be set using the file name.
     
     Returns:
         None
@@ -181,12 +187,22 @@ def plot_hr_diagram(
         title: str = "Hertzsprung-Russell Diagram", 
         save_plot: bool = False, 
         file_name: str = "hr_diagram", 
-        save_folder: str = default_folder):
+        save_folder: str = default_folder
+    ):
     """Plot an HR diagram from a Gaia dataframe.
+
     Args:
         df (pandas.dataframe): Gaia data containing parallax,
             phot_g_mean_mag, phot_bp_mean_mag, phot_rp_mean_mag.
+        title (str, optional): Title of the plot. Default is 'Hertzsprung-Russell Diagram'.
+        save_plot (bool, optional): If true, saves plot as a PDF file. Defaults to False. 
+        file_name (str, optional): File name of the resulting plot. Default is 'hr_diagram'. File identifier is added automatically.
+        save_folder (str, optional): Optional folder destination. A destination folder could also be set using the file name.
+
+    Returns: 
+        None
     """
+
     df = df.dropna(subset=["parallax", "phot_g_mean_mag", "phot_bp_mean_mag", "phot_rp_mean_mag"])
 
     magnitude = [get_magnitude(row["phot_g_mean_mag"], get_distance(row["parallax"])) for _, row in df.iterrows()]
@@ -219,6 +235,21 @@ def hist(
         save_plot: bool = False, 
         file_name: str = "distance_hist", 
         save_folder: str = default_folder):
+
+    """Plot an HR diagram from a Gaia dataframe.
+
+    Args:
+        dists (array-like): Distances to star(s).
+        bin_num (int, optional): Number of bins, defaults to 50.
+        parallax (bool, optinal): Set this to be true if using parallax data. If true converts the data into parsecs. 
+        title (str, optional): Title of the plot. Default is 'Distances histogramm'.
+        save_plot (bool, optional): If true, saves plot as a PDF file. Defaults to False. 
+        file_name (str, optional): File name of the resulting plot. Default is 'distance_hist'. File identifier is added automatically.
+        save_folder (str, optional): Optional folder destination. A destination folder could also be set using the file name.
+
+    Returns: 
+        None
+    """
 
     #Adjust if dist given in parallax
     if parallax:
