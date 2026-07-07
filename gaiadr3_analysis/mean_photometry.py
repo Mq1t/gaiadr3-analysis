@@ -236,7 +236,7 @@ def hist(
         file_name: str = "distance_hist", 
         save_folder: str = default_folder):
 
-    """Plot an HR diagram from a Gaia dataframe.
+    """Plot a histogram of distances.
 
     Args:
         dists (array-like): Distances to star(s).
@@ -283,6 +283,22 @@ def fittedHist(
         save_plot: bool = False, 
         file_name: str = "fitted_dist_hist", 
         save_folder: str = default_folder):
+    
+    """Plot a fitted histogram of distances.
+
+    Args:
+        dists (array-like): Distances to star(s).
+        bin_num (int, optional): Number of bins, defaults to 50.
+        range (list[int]) X-axis range. Defaults to [-500, 500].
+        parallax (bool, optinal): Set this to be true if using parallax data. If true converts the data into parsecs. 
+        title (str, optional): Title of the plot. Default is 'Distances histogramm'.
+        save_plot (bool, optional): If true, saves plot as a PDF file. Defaults to False. 
+        file_name (str, optional): File name of the resulting plot. Default is 'fitted_distance_hist'. File identifier is added automatically.
+        save_folder (str, optional): Optional folder destination. A destination folder could also be set using the file name.
+
+    Returns: 
+        None
+    """
     #Magnitude, Y-Values
     if parallax:
         dists = (1000/dists)
