@@ -11,6 +11,7 @@ plt.style.use(style)
 #Create a Ra vs Dec diagram.
 def ra_vs_dec(
         df: pd.DataFrame, 
+        error: bool = False,
         xlim: int|float = None, 
         ylim: int|float = None, 
         color: str ='red', 
@@ -44,7 +45,10 @@ def ra_vs_dec(
     if not isinstance(df, pd.DataFrame):
         raise TypeError('Data must be of type pandas.DataFrame')
     # Ensure required columns exist
-    required_cols = {'ra', 'dec'}
+    if error == False:
+        required_cols = {'ra', 'dec'}
+    else:
+        required_cols = {'ra', 'dec', 'ra_error', 'dec_error'}
     missing = required_cols - set(df.columns)
     if missing:
         raise KeyError(f"DataFrame is missing required columns: {', '.join(sorted(missing))}")
@@ -54,8 +58,9 @@ def ra_vs_dec(
     # Declination, Y-Values
     y = df['dec']
 
-
     plt.scatter(x, y, c = color, s = size)
+    if error == True:
+        plt.errorbar(x=x, y=y, c='red', xerr= df['ra_error'], yerr=df['dec_error'])
     plt.title(title)
     plt.xlabel("RA")
     plt.ylabel("Dec")

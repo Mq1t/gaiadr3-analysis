@@ -31,6 +31,7 @@ def phase(t, T_0, P):
 #Plot G, Bp and Rp magnitude light curves in time.
 def lightcurve(
         df:pd.DataFrame, 
+        error:bool = False,
         title:str='Flux Vs. Time', 
         overplot:bool=True, 
         rejectflags: bool=False, 
@@ -66,7 +67,10 @@ def lightcurve(
     if not isinstance(df, pd.DataFrame):
         raise TypeError('Data must be of type pandas.DataFrame')
     # Ensure required columns exist
-    required_cols = {'g_transit_mag', 'bp_mag', 'rp_mag', 'g_transit_time', 'bp_obs_time', 'rp_obs_time'}
+    if error == False:
+        required_cols = {'g_transit_mag', 'bp_mag', 'rp_mag', 'g_transit_time', 'bp_obs_time', 'rp_obs_time'}
+    else:
+        required_cols = {'g_transit_mag', 'bp_mag', 'rp_mag', 'g_transit_time', 'bp_obs_time', 'rp_obs_time', 'g_transit_flux_error', 'bp_flux_error', 'rp_flux_error'}
     missing = required_cols - set(df.columns)
     if missing:
         raise KeyError(f"DataFrame is missing required columns: {', '.join(sorted(missing))}")
