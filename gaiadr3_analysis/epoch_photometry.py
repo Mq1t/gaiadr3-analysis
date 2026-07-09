@@ -34,6 +34,9 @@ def lightcurve(
         error:bool = False,
         title:str='Flux Vs. Time', 
         overplot:bool=True, 
+        plot_g:bool = True,
+        plot_bp:bool = True,
+        plot_rp:bool = True,
         rejectflags: bool=False, 
         period:float=None, 
         xlims:tuple[int|float, int|float]=None, 
@@ -46,8 +49,12 @@ def lightcurve(
 
     Args:
         df (pd.DataFrame): DataFrame containing photometry and time columns.
+        error (bool): If true the plot will include error bars using required columns 'g_transit_flux_error', 'bp_flux_error', 'rp_flux_error'.
         title (str, optional): Plot title. Defaults to 'Flux Vs. Time'.
         overplot (bool, optional): If True, overplot all bands on a single axes. Defaults to True.
+        plot_g (bool, optional): If True, includes the G band in the plot. Defaults to True.
+        plot_bp (bool, optional): If True, includes the BP band in the plot. Defaults to True.
+        plot_rp (bool, optional): If True, includes the RP band in the plot. Defaults to True.
         rejectflags (bool, optional): If True, filter out rows flagged as rejected (uses
             'variability_flag_*_reject' columns). Defaults to False.
         period (float, optional): If provided, fold times on this period (phase plot). Defaults to None.
@@ -59,7 +66,7 @@ def lightcurve(
 
     Raises:
         TypeError: If the input data is not a pandas DataFrame.
-        KeyError: If the required columns are missing ('g_transit_mag', 'bp_mag', 'rp_mag', 'g_transit_time', 'bp_obs_time', 'rp_obs_time')
+        KeyError: If the required columns are missing
 
     Returns:
         None: Displays a matplotlib figure.
@@ -70,18 +77,38 @@ def lightcurve(
     if error == False:
         required_cols = {'g_transit_mag', 'bp_mag', 'rp_mag', 'g_transit_time', 'bp_obs_time', 'rp_obs_time'}
     else:
-        required_cols = {'g_transit_mag', 'bp_mag', 'rp_mag', 'g_transit_time', 'bp_obs_time', 'rp_obs_time', 'g_transit_flux_error', 'bp_flux_error', 'rp_flux_error'}
+        required_cols = {'g_transit_mag', 'bp_mag', 'rp_mag', 'g_transit_time', 'bp_obs_time', 'rp_obs_time', 'g_transit_flux', 'bp_flux', 'rp_flux', 'g_transit_flux_error', 'bp_flux_error', 'rp_flux_error'}
     missing = required_cols - set(df.columns)
+    
+    #Set subplot_num (only applies if over_plot is false)
+    subplot_num = 3
+
+    # Only use required variables and columns
+    if plot_g == False:
+        missing = missing - set('g_transit_mag', 'g_transit_time', 'g_transit_flux', 'g_transit_flux_error')
+        subplot_num -= 1
+    else:
+        g = 'g_transit_mag'
+        g_time = 'g_transit_time'
+
+    if plot_bp == False:
+        missing = missing - set('bp_mag', 'bp_obs_time', 'bp_flux', 'bp_flux_error')
+        subplot_num -= 1
+    else:
+        bp = 'bp_mag'
+        bp_time = 'bp_obs_time'
+
+
+    if plot_rp == False:
+        missing = missing - set('rp_mag', 'rp_obs_time', 'rp_flux', 'rp_flux_error')
+        subplot_num -=1
+    else:
+        rp = 'rp_mag'
+        rp_time = 'rp_obs_time'
+
+    # Raise error if columns missing
     if missing:
         raise KeyError(f"DataFrame is missing required columns: {', '.join(sorted(missing))}")
-
-    
-    g = 'g_transit_mag'
-    bp = 'bp_mag'
-    rp = 'rp_mag'
-    g_time = 'g_transit_time'
-    bp_time = 'bp_obs_time'
-    rp_time = 'rp_obs_time'
 
     # Filter Rejections if true
     if rejectflags:
@@ -112,13 +139,28 @@ def lightcurve(
     y_g = g_df[g] 
     y_bp = bp_df[bp]
     y_rp = rp_df[rp]
+    
+    #Calculate error values
+    if error:
+        if plot_g:
+            g_err = 1.0857362047581294 * (df['g_transit_flux_error'] / df['g_transit_flux'])
+        if plot_bp:
+            bp_err = 1.0857362047581294 * (df['bp_flux_error'] / df['bp_flux'])
+        if plot_rp:
+            rp_err = 1.0857362047581294 * (df['rp_flux_error'] / df['rp_flux'])
 
     if overplot is True:
         plt.xlabel(x_label)
         plt.ylabel("Band (app mag)")
-        plt.scatter(x_g, y_g, c ='green', s = 3, label='G Band')
-        plt.scatter(x_rp, y_rp, c ='red', s = 3, label='Rp Band')
-        plt.scatter(x_bp, y_bp, c ='blue', s = 3, label='Bp Band')
+        if plot_g: 
+            if error: plt.errorbar(x_g, y_g, yerr=g_err, fmt='none', ecolor='green', elinewidth=0.5, capsize=3, alpha=0.4)
+            plt.scatter(x_g, y_g, c ='green', s = 3, label='G Band')
+        if plot_bp: 
+            if error: plt.errorbar(x_bp, y_bp, yerr=bp_err, fmt='none', ecolor='blue', elinewidth=0.5, capsize=3, alpha=0.4)
+            plt.scatter(x_bp, y_bp, c ='blue', s = 3, label='Bp Band')
+        if plot_rp: 
+            if error: plt.errorbar(x_rp, y_rp, yerr=rp_err, fmt='none', ecolor='red', elinewidth=0.5, capsize=3, alpha=0.4)
+            plt.scatter(x_rp, y_rp, c ='red', s = 3, label='Rp Band')
         plt.title(title)
         plt.legend()
         plt.gca().invert_yaxis()
@@ -127,38 +169,41 @@ def lightcurve(
         if ylims is not None:
             plt.ylim(ylims[0], ylims[1])
     else:
-        fig, axes = plt.subplots(4, 1, figsize=(6, 10))
+        fig, axes = plt.subplots(subplot_num, 1, figsize=(6, 10))
         # Plot on each subplot
         #axes[0].set_title(plot_title)
-        axes[0].set_xlabel(x_label)
-        axes[0].set_ylabel("G Band (app mag)")
-        axes[0].scatter(x_g, y_g, c ='green', s = 4, label='G Band')
-        axes[0].legend()
-        axes[0].invert_yaxis()
+        if plot_g:
+            axes[0].set_xlabel(x_label)
+            axes[0].set_ylabel("G Band (app mag)")
+            if error: axes[0].errorbar(
+                    x_g, y_g,
+                    yerr=g_err,
+                    fmt='none',
+                    ecolor='green',       # error bar color
+                    elinewidth=0.5,
+                    capsize=2,
+                    alpha=0.4,           # reduce clutter, makes it slightly transparetn
+                )
+            axes[0].scatter(x_g, y_g, c ='green', s = 4, label='G Band')
+            axes[0].legend()
+            axes[0].invert_yaxis()
     
-        #axes[1].set_title(plot_title)
-        axes[1].set_xlabel(x_label)
-        axes[1].set_ylabel("Bp Band (app mag)")
-        axes[1].scatter(x_bp, y_bp, c ='blue', s = 4, label='Bp Band')
-        axes[1].legend()
-        axes[1].invert_yaxis()
+        if plot_bp:
+            #axes[1].set_title(plot_title)
+            axes[1].set_xlabel(x_label)
+            axes[1].set_ylabel("Bp Band (app mag)")
+            axes[1].scatter(x_bp, y_bp, c ='blue', s = 4, label='Bp Band')
+            axes[1].legend()
+            axes[1].invert_yaxis()
     
-        #axes[2].set_title(plot_title)
-        axes[2].set_xlabel(x_label)
-        axes[2].set_ylabel("Rp Band (app mag)")
-        axes[2].scatter(x_rp, y_rp, c ='red', s = 4, label='Rp Band')
-        axes[2].legend()
-        axes[2].invert_yaxis()
+        if plot_rp:
+            #axes[2].set_title(plot_title)
+            axes[2].set_xlabel(x_label)
+            axes[2].set_ylabel("Rp Band (app mag)")
+            axes[2].scatter(x_rp, y_rp, c ='red', s = 4, label='Rp Band')
+            axes[2].legend()
+            axes[2].invert_yaxis()
 
-        #Overplot 
-        #axes[2].set_title(plot_title)
-        axes[3].set_xlabel(x_label)
-        axes[3].set_ylabel("Band (app mag)")
-        axes[3].scatter(x_g, y_g, c ='green', s = 3, label='G Band')
-        axes[3].scatter(x_rp, y_rp, c ='red', s = 3, label='Rp Band')
-        axes[3].scatter(x_bp, y_bp, c ='blue', s = 3, label='Bp Band')
-        axes[3].legend()
-        axes[3].invert_yaxis()
 
         if ylims is not None:
             for ax in axes: 
