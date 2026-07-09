@@ -15,7 +15,7 @@ def ra_vs_dec(
         xlim: int|float = None, 
         ylim: int|float = None, 
         color: str ='red', 
-        size: int|float = 0.5, 
+        size: int|float = 0.7, 
         title: str = 'Right Ascension Vs. Declination', 
         save_plot: bool = False, 
         file_name: str | None = 'ra_vs_dec', 
@@ -26,6 +26,7 @@ def ra_vs_dec(
     Args:
         df (pd.DataFrame): A pandas DataFrame containing at least two columns, 'ra' for Right Ascension
                           and 'dec' for Declination.
+        error (bool): If true the plot will include error bars using required columns 'ra_error', and 'dec_error'.
         xlim (int|float, optional): The x-axis upper limit. If None, the default limits are used. Default is None.
         ylim (int|float, optional): The y-axis upper limit. If None, the default limits are used. Default is None.
         color (str, optional): Color of the plotted points. Default is 'red'.
@@ -58,12 +59,28 @@ def ra_vs_dec(
     # Declination, Y-Values
     y = df['dec']
 
-    plt.scatter(x, y, c = color, s = size)
-    if error == True:
-        plt.errorbar(x=x, y=y, c='red', xerr= df['ra_error'], yerr=df['dec_error'])
+
+    if error:
+        #Converts error from mas to degrees
+        xerr = df['ra_error'] / 3600000
+        yerr = df['dec_error'] / 3600000
+        plt.errorbar(
+            x, y,
+            xerr=xerr,
+            yerr=yerr,
+            fmt='none',
+            markersize=size,
+            ecolor=color,       # error bar color
+            elinewidth=0.5,
+            capsize=2,
+            alpha=0.4,           # reduce clutter, makes it slightly transparetn
+            zorder=1
+        )
+    plt.scatter(x, y, c=color, s=size, zorder=3)
     plt.title(title)
     plt.xlabel("RA")
     plt.ylabel("Dec")
+
     if xlim is not None:
         plt.xlim(xlim)
     if ylim is not None:
@@ -84,8 +101,9 @@ def ra_vs_dec(
 #Proper motion
 def pmra_vs_pmdec(
         df: pd.DataFrame, 
-        xlim:float=None, 
-        ylim:float=None, 
+        error:bool = False,
+        xlim:float = None, 
+        ylim:float = None, 
         color: str ='red', 
         size: int|float = 0.5, 
         title: str = 'Right Ascension Vs. Declination in Proper Motion Space', 
@@ -96,8 +114,9 @@ def pmra_vs_pmdec(
     Plot Right Ascension (RA) vs Declination (Dec) in proper motion space from a pandas DataFrame.
 
     Args:
-        df (pd.DataFrame): A pandas DataFrame containing at least two columns, 'pmra' for Proper Motion in RA
+        df (pd.DataFrame): A pandas DataFrame containing at minimum two columns, 'pmra' for Proper Motion in RA
                           and 'pmdec' for Proper Motion in Dec.
+        error (bool): If true the plot will include error bars using required columns 'pmra_error', and 'pmdec_error'.
         xlim (int|float, optional): The x-axis upper limit. If None, the default limits are used. Default is None.
         ylim (int|float, optional): The y-axis upper limit. If None, the default limits are used. Default is None.
         color (str, optional): Color of the plotted points. Default is 'red'.
@@ -117,7 +136,10 @@ def pmra_vs_pmdec(
     if not isinstance(df, pd.DataFrame):
         raise TypeError('Data must be of type pandas.DataFrame')
     # Ensure required columns exist
-    required_cols = {'pmra', 'pmdec'}
+    if error == False:
+        required_cols = {'pmra', 'pmdec'}
+    else:
+        required_cols = {'pmra_error', 'pmdec_error'}
     missing = required_cols - set(df.columns)
     if missing:
         raise KeyError(f"DataFrame is missing required columns: {', '.join(sorted(missing))}")
@@ -125,8 +147,22 @@ def pmra_vs_pmdec(
     # Proper motion RA, X-Value; Dec, Y-Values
     x = df['pmra']
     y = df['pmdec']
-
-    plt.scatter(x, y, c = color, s = size)
+    if error:
+        xerr = df['pmra_error']
+        yerr = df['pmdec_error']
+        plt.errorbar(
+            x, y,
+            xerr=xerr,
+            yerr=yerr,
+            fmt='none',
+            markersize=size,
+            ecolor=color,       # error bar color
+            elinewidth=0.5,
+            capsize=2,
+            alpha=0.4,           # reduce clutter, makes it slightly transparetn
+            zorder=1
+        )
+    plt.scatter(x, y, c=color, s=size, zorder=3)
 
     #Titles and Show graph
     plt.title(title)
