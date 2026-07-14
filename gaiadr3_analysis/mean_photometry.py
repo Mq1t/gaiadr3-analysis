@@ -276,7 +276,7 @@ def hist(
         file_name: str = "histogram", 
         save_folder: str = default_folder):
 
-    """Plot a histogram of distances.
+    """Plot a histogram.
 
     Args:
         values (array-like): Values for histogram.
@@ -324,7 +324,7 @@ def fitted_hist(
         file_name: str = "fitted_hist", 
         save_folder: str = default_folder):
     
-    """Plot a fitted histogram of distances.
+    """Plot a fitted histogram.
 
     Args:
         values (array-like): Values.
