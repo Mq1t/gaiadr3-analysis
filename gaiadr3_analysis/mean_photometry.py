@@ -225,6 +225,10 @@ def get_bprp(phot_bp_mean_mag, phot_rp_mean_mag):
 
 def plot_hr_diagram(
         df, 
+        error: bool = False,
+        underlay: bool = False,
+        xlim: list[int] = [-1, 5],
+        ylim: list[int] = [-5, 15],
         title: str = "Hertzsprung-Russell Diagram", 
         save_plot: bool = False, 
         file_name: str = "hr_diagram", 
@@ -234,6 +238,9 @@ def plot_hr_diagram(
 
     Args:
         df (pandas.dataframe): Gaia data containing at minimum parallax, phot_g_mean_mag, phot_bp_mean_mag, and phot_rp_mean_mag.
+        error (bool): If true the plot will include error bars using required columns.
+        xlim ([int]|[float], optional): The x-axis upper limit. If None, the default limits are used. Default is None.
+        ylim ([int]|[float], optional): The y-axis upper limit. If None, the default limits are used. Default is None.
         title (str, optional): Title of the plot. Default is 'Hertzsprung-Russell Diagram'.
         save_plot (bool, optional): If true, saves plot as a PDF file. Defaults to False. 
         file_name (str, optional): File name of the resulting plot. Default is 'hr_diagram'. File identifier is added automatically.
@@ -243,15 +250,32 @@ def plot_hr_diagram(
         None
     """
 
-    df = df.dropna(subset=["parallax", "phot_g_mean_mag", "phot_bp_mean_mag", "phot_rp_mean_mag"])
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError('Data must be of type pandas.DataFrame')
+    # Ensure required columns exist
+    if error == False:
+        required_cols = {"parallax", "phot_g_mean_mag", "phot_bp_mean_mag", "phot_rp_mean_mag"}
+    else:
+        required_cols = {"parallax", "phot_g_mean_mag", "phot_bp_mean_mag", "phot_rp_mean_mag"}
+    missing = required_cols - set(df.columns)
+    if missing:
+        raise KeyError(f"DataFrame is missing required columns: {', '.join(sorted(missing))}")
 
+    #Get absolute magnitude using apparent magnitude and parralax
     magnitude = [get_magnitude(row["phot_g_mean_mag"], get_distance(row["parallax"])) for _, row in df.iterrows()]
+    #BP - RP
     bprp = [get_bprp(row["phot_bp_mean_mag"], row["phot_rp_mean_mag"]) for _, row in df.iterrows()]
 
     plt.figure()
+    if underlay == True:
+        print("NOT DONE YET")
     plt.scatter(bprp, magnitude, c="purple", s=1)
-    plt.xlabel("BP - RP")
-    plt.ylabel("Absolute Magnitude")
+    plt.xlabel(r"G$_{BP}$")
+    plt.ylabel(r"M$_{G}$")
+    if xlim is not None:
+        plt.xlim(xlim)
+    if ylim is not None:
+        plt.ylim(ylim)
     plt.title(title)
     plt.gca().invert_yaxis()
 
