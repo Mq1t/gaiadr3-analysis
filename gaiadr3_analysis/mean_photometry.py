@@ -233,8 +233,7 @@ def plot_hr_diagram(
     """Plot an HR diagram from a Gaia dataframe.
 
     Args:
-        df (pandas.dataframe): Gaia data containing parallax,
-            phot_g_mean_mag, phot_bp_mean_mag, phot_rp_mean_mag.
+        df (pandas.dataframe): Gaia data containing at minimum parallax, phot_g_mean_mag, phot_bp_mean_mag, and phot_rp_mean_mag.
         title (str, optional): Title of the plot. Default is 'Hertzsprung-Russell Diagram'.
         save_plot (bool, optional): If true, saves plot as a PDF file. Defaults to False. 
         file_name (str, optional): File name of the resulting plot. Default is 'hr_diagram'. File identifier is added automatically.
@@ -269,18 +268,18 @@ def plot_hr_diagram(
     plt.show()
 
 def hist(
-        dists, 
+        values, 
         bin_num:int = 50, 
         parallax:bool =False, 
         title:str = "Distances histogram", 
         save_plot: bool = False, 
-        file_name: str = "distance_hist", 
+        file_name: str = "histogram", 
         save_folder: str = default_folder):
 
     """Plot a histogram of distances.
 
     Args:
-        dists (array-like): Distances to star(s).
+        values (array-like): Values for histogram.
         bin_num (int, optional): Number of bins, defaults to 50.
         parallax (bool, optinal): Set this to be true if using parallax data. If true converts the data into parsecs. 
         title (str, optional): Title of the plot. Default is 'Distances histogramm'.
@@ -294,10 +293,10 @@ def hist(
 
     #Adjust if dist given in parallax
     if parallax:
-        dists = (1000/dists)
+        values = (1000/values)
     
     plt.title(title)
-    plt.hist(dists, bins=bin_num)
+    plt.hist(values, bins=bin_num)
     plt.xlabel('Distance (pc)')
     plt.ylabel('Stars per bin')
     if save_plot:
@@ -315,20 +314,20 @@ def hist(
 def gaussian(x, A, sigma, mu):
     return A*(1/(sigma * np.sqrt(2*np.pi)) * np.exp(-1*(x - mu)**2 / (2*sigma**2)))
 
-def fittedHist(
-        dists, 
+def fitted_hist(
+        values, 
         bin_num:int =50, 
         range:list[int] =[-500,500],
         parallax:bool =False, 
-        title:str = "Distances histogram", 
+        title:str = "Fitted histogram", 
         save_plot: bool = False, 
-        file_name: str = "fitted_dist_hist", 
+        file_name: str = "fitted_hist", 
         save_folder: str = default_folder):
     
     """Plot a fitted histogram of distances.
 
     Args:
-        dists (array-like): Distances to star(s).
+        values (array-like): Values.
         bin_num (int, optional): Number of bins, defaults to 50.
         range (list[int]) X-axis range. Defaults to [-500, 500].
         parallax (bool, optinal): Set this to be true if using parallax data. If true converts the data into parsecs. 
@@ -342,15 +341,16 @@ def fittedHist(
     """
     #Magnitude, Y-Values
     if parallax:
-        dists = (1000/dists)
+        values = (1000/values)
 
-    median = dists.median()
-    std = dists.std()
+    median = values.median()
+    std = values.std()
 
-    print("Distance"+", meidian: "+ str(median))
+    print("Median: "+ str(median)+", standard deviation: "+str(std))
+
 
     plt.title(title)
-    h_1d_output = plt.hist(dists, bins=bin_num)
+    h_1d_output = plt.hist(values, bins=bin_num)
     x_plot = np.linspace(range[0],range[1], 300)
     x_1d_fit = (h_1d_output[1][:-1]+h_1d_output[1][1:])/2
     y_1d_fit = h_1d_output[0]
