@@ -233,7 +233,7 @@ def lightcurve(
 def lomb_scargle(
     t: pd.DataFrame = None, 
     mag: pd.DataFrame = None, 
-    plot_title:str='Lomb-Scargle Periodogram', 
+    title:str='Lomb-Scargle Periodogram', 
     period_range: list[float] = None, 
     xlims: list[float] = None, 
     jd: bool=True, 
@@ -250,7 +250,7 @@ def lomb_scargle(
     Args:
         t (array-like): Time values (JD or relative). If None, synthetic data is used as an example.
         mag (array-like): Magnitudes or fluxes corresponding to 't'. If None, synthetic data is used as an example.
-        plot_title (str, optional): Display title for the corresponding plot. Defaults to 'Lomb-Scargle Periodogram'.
+        title (str, optional): Display title for the corresponding plot. Defaults to 'Lomb-Scargle Periodogram'.
         period_range (list[float], optional): [P_min, P_max] search range in days. If None, it is estimated using the Nyquist frequency.
         xlims (list[float], optional): X-axis limits for period plot (days).
         jd (bool, optional): If True, convert JD times to relative by subtracting the minimum. Defaults to True.
@@ -304,7 +304,7 @@ def lomb_scargle(
     df = pd.DataFrame({"period":period_days, "power":power, "false alarm probability":FAP})
 
     if plot:
-        plot_ls(period_days=period_days, power=power, title=plot_title, xlims=xlims, save=save_plot, file_name=plot_file, save_folder=save_folder)
+        plot_ls(period_days=period_days, power=power, title=title, xlims=xlims, save=save_plot, file_name=plot_file, save_folder=save_folder)
     if save_data:
         os.makedirs(save_folder, exist_ok=True)
         safe_name = data_file.replace(" ", "_")
@@ -375,7 +375,7 @@ def plot_ls(
 def pdm(
         t: pd.DataFrame, 
         mag: pd.DataFrame, 
-        plot_title:str='Phase Dispersion Minimization', 
+        title:str='Phase Dispersion Minimization', 
         bins:int|float = 50, 
         covers:int = 3, 
         freq_range:list[int|float] = [0.01, 10.0, 0.001], 
@@ -392,7 +392,7 @@ def pdm(
     Args:
         t (array-like): Time values (JD or relative).
         mag (array-like): Magnitudes or fluxes corresponding to 't'. 
-        plot_title (str, optional): Display title for the corresponding plot. Defaults to 'Phase Dispersion Minimization'.
+        title (str, optional): Display title for the corresponding plot. Defaults to 'Phase Dispersion Minimization'.
         bins (int, optional): Number of bins to be used in the PDM analysis. Defaults to 50.
         covers (int, optional): Number of covers to be uesd in the PDM analysis. Defaults to 3.
         freq_range (list[float], optional): Frequency range of the PDM analysis, defaults to [0.01, 10.0, 0.001], 
@@ -428,7 +428,7 @@ def pdm(
     print("Best period =", best_period, "days")
 
     if plot == True:
-        plot_pdm(frequencies=frequencies, theta=theta, best_period=best_period, save=save_plot, title=plot_title, file_name=plot_file, save_folder=save_folder)
+        plot_pdm(frequencies=frequencies, theta=theta, best_period=best_period, save=save_plot, title=title, file_name=plot_file, save_folder=save_folder)
     
     df = pd.DataFrame({"period":periods, "frequency":frequencies, "theta":theta})
 
