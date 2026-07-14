@@ -32,7 +32,7 @@ def phase(t, T_0, P):
 def lightcurve(
         df:pd.DataFrame, 
         title:str='Flux Vs. Time', 
-        overplot:bool=True, 
+        plot:bool=True, 
         rejectflags: bool=False, 
         period:float=None, 
         xlims:tuple[int|float, int|float]=None, 
@@ -46,7 +46,7 @@ def lightcurve(
     Args:
         df (pd.DataFrame): DataFrame containing photometry and time columns.
         title (str, optional): Plot title. Defaults to 'Flux Vs. Time'.
-        overplot (bool, optional): If True, overplot all bands on a single axes. Defaults to True.
+        plot (bool, optional): If True, plot all bands on a single axes. Defaults to True.
         rejectflags (bool, optional): If True, filter out rows flagged as rejected (uses
             'variability_flag_*_reject' columns). Defaults to False.
         period (float, optional): If provided, fold times on this period (phase plot). Defaults to None.
@@ -109,7 +109,7 @@ def lightcurve(
     y_bp = bp_df[bp]
     y_rp = rp_df[rp]
 
-    if overplot is True:
+    if plot is True:
         plt.xlabel(x_label)
         plt.ylabel("Band (app mag)")
         plt.scatter(x_g, y_g, c ='green', s = 3, label='G Band')
@@ -125,21 +125,21 @@ def lightcurve(
     else:
         fig, axes = plt.subplots(4, 1, figsize=(6, 10))
         # Plot on each subplot
-        #axes[0].set_title(plot_title)
+        #axes[0].set_title(title)
         axes[0].set_xlabel(x_label)
         axes[0].set_ylabel("G Band (app mag)")
         axes[0].scatter(x_g, y_g, c ='green', s = 4, label='G Band')
         axes[0].legend()
         axes[0].invert_yaxis()
     
-        #axes[1].set_title(plot_title)
+        #axes[1].set_title(title)
         axes[1].set_xlabel(x_label)
         axes[1].set_ylabel("Bp Band (app mag)")
         axes[1].scatter(x_bp, y_bp, c ='blue', s = 4, label='Bp Band')
         axes[1].legend()
         axes[1].invert_yaxis()
     
-        #axes[2].set_title(plot_title)
+        #axes[2].set_title(title)
         axes[2].set_xlabel(x_label)
         axes[2].set_ylabel("Rp Band (app mag)")
         axes[2].scatter(x_rp, y_rp, c ='red', s = 4, label='Rp Band')
@@ -147,7 +147,7 @@ def lightcurve(
         axes[2].invert_yaxis()
 
         #Overplot 
-        #axes[2].set_title(plot_title)
+        #axes[2].set_title(title)
         axes[3].set_xlabel(x_label)
         axes[3].set_ylabel("Band (app mag)")
         axes[3].scatter(x_g, y_g, c ='green', s = 3, label='G Band')
@@ -184,7 +184,7 @@ def lightcurve(
 def lomb_scargle(
     t: pd.DataFrame = None, 
     mag: pd.DataFrame = None, 
-    plot_title:str='Lomb-Scargle Periodogram', 
+    title:str='Lomb-Scargle Periodogram', 
     period_range: list[float] = None, 
     xlims: list[float] = None, 
     jd: bool=True, 
@@ -201,7 +201,7 @@ def lomb_scargle(
     Args:
         t (array-like): Time values (JD or relative). If None, synthetic data is used as an example.
         mag (array-like): Magnitudes or fluxes corresponding to 't'. If None, synthetic data is used as an example.
-        plot_title (str, optional): Display title for the corresponding plot. Defaults to 'Lomb-Scargle Periodogram'.
+        title (str, optional): Display title for the corresponding plot. Defaults to 'Lomb-Scargle Periodogram'.
         period_range (list[float], optional): [P_min, P_max] search range in days. If None, it is estimated using the Nyquist frequency.
         xlims (list[float], optional): X-axis limits for period plot (days).
         jd (bool, optional): If True, convert JD times to relative by subtracting the minimum. Defaults to True.
@@ -255,7 +255,7 @@ def lomb_scargle(
     df = pd.DataFrame({"period":period_days, "power":power, "false alarm probability":FAP})
 
     if plot:
-        plot_ls(period_days=period_days, power=power, title=plot_title, xlims=xlims, save=save_plot, file_name=plot_file, save_folder=save_folder)
+        plot_ls(period_days=period_days, power=power, title=title, xlims=xlims, save=save_plot, file_name=plot_file, save_folder=save_folder)
     if save_data:
         os.makedirs(save_folder, exist_ok=True)
         safe_name = data_file.replace(" ", "_")
@@ -326,7 +326,7 @@ def plot_ls(
 def pdm(
         t: pd.DataFrame, 
         mag: pd.DataFrame, 
-        plot_title:str='Phase Dispersion Minimization', 
+        title:str='Phase Dispersion Minimization', 
         bins:int|float = 50, 
         covers:int = 3, 
         freq_range:list[int|float] = [0.01, 10.0, 0.001], 
@@ -343,7 +343,7 @@ def pdm(
     Args:
         t (array-like): Time values (JD or relative).
         mag (array-like): Magnitudes or fluxes corresponding to 't'. 
-        plot_title (str, optional): Display title for the corresponding plot. Defaults to 'Phase Dispersion Minimization'.
+        title (str, optional): Display title for the corresponding plot. Defaults to 'Phase Dispersion Minimization'.
         bins (int, optional): Number of bins to be used in the PDM analysis. Defaults to 50.
         covers (int, optional): Number of covers to be uesd in the PDM analysis. Defaults to 3.
         freq_range (list[float], optional): Frequency range of the PDM analysis, defaults to [0.01, 10.0, 0.001], 
@@ -379,7 +379,7 @@ def pdm(
     print("Best period =", best_period, "days")
 
     if plot == True:
-        plot_pdm(frequencies=frequencies, theta=theta, best_period=best_period, save=save_plot, title=plot_title, file_name=plot_file, save_folder=save_folder)
+        plot_pdm(frequencies=frequencies, theta=theta, best_period=best_period, save=save_plot, title=title, file_name=plot_file, save_folder=save_folder)
     
     df = pd.DataFrame({"period":periods, "frequency":frequencies, "theta":theta})
 
