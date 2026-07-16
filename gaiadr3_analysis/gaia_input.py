@@ -26,6 +26,25 @@ def gaia_login_prompt():
         except Exception as e:
             print(f"Login failed: {e}")
 
+def find_common_name(id_result):
+    """Pull a common name and any binary/multiple star designations from a SIMBAD ID result.
+
+    Args:
+        id_result (astropy.table.Table): Result of Simbad.query_objectids().
+
+    Returns:
+        tuple[str or None, list[str]]: Common name (or None if not found), and a list of any
+        binary/multiple star designations found.
+    """
+    common_name = None
+    binaries = []
+    for row in id_result["id"]:
+        if row.startswith("NAME ") and common_name is None:
+            common_name = row.replace("NAME ", "")
+        if row.startswith("** "):
+            binaries.append(row)
+    return common_name, binaries
+
 def resolve_id(identifier):
     """Convert a star or cluster identifier to its Gaia DR3 source ID(s).
 
@@ -44,67 +63,79 @@ def resolve_id(identifier):
         could be resolved.
     """
     if str(identifier).strip().isdigit():
-        return int(identifier)
+        gaia_id = int(identifier)
+        id_result = Simbad.query_objectids(f"Gaia DR3 {gaia_id}")
+        if id_result is not None:
+            common_name, binaries = find_common_name(id_result)
+            if common_name:
+                print(f"Resolved: {gaia_id} (numeric ID, used as-is) -> common name: {common_name}")
+            else:
+                print(f"Resolved: {gaia_id} (numeric ID, used as-is)")
+            if binaries:
+                print(f"  Binary/multiple star designation(s) found: {binaries}")
+        else:
+            print(f"Resolved: {gaia_id} (numeric ID, used as-is)")
+        return gaia_id
 
     result = Simbad.query_objectids(identifier)
     if result is not None:
+        common_name, binaries = find_common_name(result)
         for row in result["id"]:
             if row.startswith("Gaia DR3 "):
-                return int(row.replace("Gaia DR3 ", ""))
+                gaia_id = int(row.replace("Gaia DR3 ", ""))
+                if common_name and common_name != identifier:
+                    print(f"Resolved: '{identifier}' ({common_name}) -> Gaia DR3 {gaia_id}")
+                else:
+                    print(f"Resolved: '{identifier}' -> Gaia DR3 {gaia_id}")
+                if binaries:
+                    print(f"  Binary/multiple star designation(s) found: {binaries}")
+                return gaia_id
 
-    # No direct cross-match on the identifier itself
     children = Simbad.query_hierarchy(identifier, hierarchy="children")
     if children is None or len(children) == 0:
         print(f"Could not resolve '{identifier}'.")
         return None
 
     resolved_ids = []
+    resolved_lines = []
+    unresolved_children = []
     for child_name in children["main_id"]:
         child_ids = Simbad.query_objectids(child_name)
         if child_ids is None:
+            unresolved_children.append(str(child_name))
             continue
+
+        gaia_id = None
         for row in child_ids["id"]:
             if row.startswith("Gaia DR3 "):
-                resolved_ids.append(int(row.replace("Gaia DR3 ", "")))
+                gaia_id = int(row.replace("Gaia DR3 ", ""))
                 break
+
+        if gaia_id is None:
+            unresolved_children.append(str(child_name))
+            continue
+
+        resolved_ids.append(gaia_id)
+        common_name, binaries = find_common_name(child_ids)
+        if common_name and common_name != str(child_name):
+            line = f"{child_name} ({common_name}) -> Gaia DR3 {gaia_id}"
+        else:
+            line = f"{child_name} -> Gaia DR3 {gaia_id}"
+        if binaries:
+            line += f"  [binary/multiple star designation(s): {binaries}]"
+        resolved_lines.append(line)
 
     if not resolved_ids:
         print(f"'{identifier}' has no Gaia DR3 cross-match, and none of its children do either.")
         return None
 
+    print(f"Resolved {len(resolved_ids)}/{len(children['main_id'])} child(ren) of '{identifier}':")
+    for line in resolved_lines:
+        print(f"  {line}")
+    if unresolved_children:
+        print(f"Could not resolve {len(unresolved_children)} child(ren) of '{identifier}': {unresolved_children}")
+
     return resolved_ids
-
-def find_cluster(ra, dec, distance):
-    """Find the cluster nearest in distance to a given sky position, using SIMBAD.
-
-    Args:
-        ra (float): Right ascension in degrees.
-        dec (float): Declination in degrees.
-        distance (float): Distance to the star in parsecs.
-
-    Returns:
-        str or None: Name of the best matching cluster, or None if no match is found.
-    """
-    Simbad.add_votable_fields('otype', 'parallax')
-    coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
-    result = Simbad.query_region(coord, radius=0.5 * u.deg)
-
-    if result is None:
-        return None
-
-    best_name, best_diff = None, None
-    for row in result:
-        if row["otype"] not in ("Cl*", "OpC", "GlC", "As*"):
-            continue
-        plx = row["plx_value"]
-        if not plx or plx <= 0:
-            continue
-
-        diff = abs((1000 / plx) - distance)
-        if best_diff is None or diff < best_diff:
-            best_diff, best_name = diff, row["main_id"]
-
-    return best_name
 
 def query_by_adql(adql_query: str = None, save_file: bool = False, file_name: str = None, identifier: int | str = None):
     """Query Gaia with an ADQL query.
@@ -120,7 +151,7 @@ def query_by_adql(adql_query: str = None, save_file: bool = False, file_name: st
 
     Note:
         Because an identifier can resolve to more than one Gaia ID, any custom 'adql_query' you write should 
-        use an 'IN ({source_id})' clause rather than '= {source_id}'. With '=', a query will work fine for a 
+        use an 'IN ({source_id})' clause rather than '= {source_id}'. With '=', a query will work for a 
         single resolved ID, but will fail with an ADQL syntax error if 'identifier' resolves to multiple IDs.
 
     Args:
@@ -174,79 +205,6 @@ def query_by_adql(adql_query: str = None, save_file: bool = False, file_name: st
         df.to_csv(formatted_name)
 
     return df
-
-def query_by_datalink(
-    gaia_ids: int | list[int],
-    release: str = 'Gaia DR3',
-    retrieval: str = 'EPOCH_PHOTOMETRY',
-    structure: str = 'INDIVIDUAL',
-    save_file: bool = False,
-    folder_name: str = None
-):
-    """Query Gaia with a Datalink query.
-
-    Any non-Gaia identifiers are automatically resolved to Gaia DR3 source IDs via SIMBAD (see resolve_id) before 
-    the query is run. Identifiers that resolve to multiple children are expanded so every resolved star is included.
-
-    Args:
-        gaia_ids (int or str or list[int or str]): Gaia source ID(s) or other star/cluster identifier(s) 
-            (resolved automatically) of the target(s) of the query.
-        release (str, optional): Data release version. Defaults to 'Gaia DR3'.
-        retrieval (str, optional): Retrieval type. Defaults to 'EPOCH_PHOTOMETRY'.
-        structure (str, optional): Data structure. Defaults to 'INDIVIDUAL'.
-        save_file (bool, optional): Whether to save each result to a CSV file. Defaults to False.
-        folder_name (str, optional): Folder to save CSV files into. Required if save_file is True. Defaults to None.
-
-    Returns:
-        dict: Query results. Keys are Gaia IDs, values are epoch photometry DataFrames.
-
-    Raises:
-        TypeError: If save_file is True and folder_name is not a string.
-    """
-    if save_file == True and type(folder_name) != str:
-        raise TypeError(f"Expected string data for folder_name, got {type(folder_name)}")
-
-    if isinstance(gaia_ids, (int, str)):
-        gaia_ids = [gaia_ids]
-
-    # resolve_id may return a single int (direct match) or a list[int]
-    resolved_ids = []
-    for gid in gaia_ids:
-        resolved = resolve_id(gid)
-        if resolved is None:
-            continue
-        if isinstance(resolved, list):
-            resolved_ids.extend(resolved)
-        else:
-            resolved_ids.append(resolved)
-
-    if not resolved_ids:
-        print("No IDs could be resolved.")
-        return {}
-
-    dl_query = Gaia.load_data(ids=resolved_ids, data_release=release, retrieval_type=retrieval, data_structure=structure)
-    df_dict = {}
-    retrieved_ids = set()
-
-    for key, value in dl_query.items():
-        gaia_id = int(key[26:-4])
-        retrieved_ids.add(gaia_id)
-        df = value[0].to_table().to_pandas()
-        df_dict[gaia_id] = df
-
-        # Add file to folder if save_file is True
-        if save_file:
-            file_name = folder_name + "/" + str(gaia_id) + ".csv"
-            df.to_csv(file_name)
-
-    if len(retrieved_ids) <= 0:
-        print("No IDs could be retrieved. (no Epoch Photometry data).")
-    else:
-        not_retrieved = set(resolved_ids) - retrieved_ids
-        if not_retrieved:
-            print(f"IDs not retrieved (no Epoch Photometry data):\n{not_retrieved}")
-
-    return df_dict
 
 def find_star(
     ra: str | float = None,
@@ -304,8 +262,142 @@ def find_star(
     else:
         df = query_by_adql(query)
 
+    if df is not None:
+        print(f"Found {len(df)} source(s) within {degree_range} deg.")
+        if "non_single_star" in df.columns and "source_id" in df.columns:
+            flagged = df[df["non_single_star"] > 0]
+            if len(flagged) > 0:
+                print(f"  {len(flagged)} source(s) flagged as non-single-star (binary/multiple) system(s):")
+                for _, row in flagged.iterrows():
+                    flags = int(row["non_single_star"])
+                    types = []
+                    if flags & 1:
+                        types.append("astrometric")
+                    if flags & 2:
+                        types.append("spectroscopic")
+                    if flags & 4:
+                        types.append("eclipsing")
+                    print(f"    source_id {row['source_id']}: {', '.join(types) if types else f'flag={flags}'}")
+
     return df
 
+def find_cluster(ra, dec, distance):
+    """Find the cluster nearest in distance to a given sky position, using SIMBAD.
+
+    Args:
+        ra (float): Right ascension in degrees.
+        dec (float): Declination in degrees.
+        distance (float): Distance to the star in parsecs.
+
+    Returns:
+        str or None: Name of the best matching cluster, or None if no match is found.
+    """
+    Simbad.add_votable_fields('otype', 'parallax')
+    coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
+    result = Simbad.query_region(coord, radius=0.5 * u.deg)
+
+    if result is None:
+        return None
+
+    best_name, best_diff = None, None
+    checked, skipped_plx = 0, 0
+    for row in result:
+        if row["otype"] not in ("Cl*", "OpC", "GlC", "As*"):
+            continue
+        plx = row["plx_value"]
+        if not plx or plx <= 0:
+            skipped_plx += 1
+            continue
+
+        checked += 1
+        diff = abs((1000 / plx) - distance)
+        if best_diff is None or diff < best_diff:
+            best_diff, best_name = diff, row["main_id"]
+
+    if best_name is not None:
+        print(
+            f"Cluster match: checked {checked} candidate(s) ({skipped_plx} skipped for missing/invalid "
+            f"parallax); best match '{best_name}' (distance diff={best_diff:.2f} pc)."
+        )
+    else:
+        print(
+            f"Cluster match: checked {checked} candidate(s) ({skipped_plx} skipped for missing/invalid "
+            f"parallax); no match found."
+        )
+
+    return best_name
+
+def query_by_datalink(
+    gaia_ids: int | list[int],
+    release: str = 'Gaia DR3',
+    retrieval: str = 'EPOCH_PHOTOMETRY',
+    structure: str = 'INDIVIDUAL',
+    save_file: bool = False,
+    folder_name: str = None
+):
+    """Query Gaia with a Datalink query.
+
+    Any non-Gaia identifiers are automatically resolved to Gaia DR3 source IDs via SIMBAD (see resolve_id) before 
+    the query is run. Identifiers that resolve to multiple children are expanded so every resolved star is included.
+
+    Args:
+        gaia_ids (int or str or list[int or str]): Gaia source ID(s) or other star/cluster identifier(s) 
+            (resolved automatically) of the target(s) of the query.
+        release (str, optional): Data release version. Defaults to 'Gaia DR3'.
+        retrieval (str, optional): Retrieval type. Defaults to 'EPOCH_PHOTOMETRY'.
+        structure (str, optional): Data structure. Defaults to 'INDIVIDUAL'.
+        save_file (bool, optional): Whether to save each result to a CSV file. Defaults to False.
+        folder_name (str, optional): Folder to save CSV files into. Required if save_file is True. Defaults to None.
+
+    Returns:
+        dict: Query results. Keys are Gaia IDs, values are epoch photometry DataFrames.
+
+    Raises:
+        TypeError: If save_file is True and folder_name is not a string.
+    """
+    if save_file == True and type(folder_name) != str:
+        raise TypeError(f"Expected string data for folder_name, got {type(folder_name)}")
+
+    if isinstance(gaia_ids, (int, str)):
+        gaia_ids = [gaia_ids]
+
+    resolved_ids = []
+    for gid in gaia_ids:
+        resolved = resolve_id(gid)
+        if resolved is None:
+            continue
+        if isinstance(resolved, list):
+            resolved_ids.extend(resolved)
+        else:
+            resolved_ids.append(resolved)
+
+    if not resolved_ids:
+        print("No IDs could be resolved.")
+        return {}
+
+    dl_query = Gaia.load_data(ids=resolved_ids, data_release=release, retrieval_type=retrieval, data_structure=structure)
+    df_dict = {}
+    retrieved_ids = set()
+
+    for key, value in dl_query.items():
+        gaia_id = int(key[26:-4])
+        retrieved_ids.add(gaia_id)
+        df = value[0].to_table().to_pandas()
+        df_dict[gaia_id] = df
+
+        # Add file to folder if save_file is True
+        if save_file:
+            file_name = folder_name + "/" + str(gaia_id) + ".csv"
+            df.to_csv(file_name)
+
+    if len(retrieved_ids) <= 0:
+        print("No IDs could be retrieved. (no Epoch Photometry data).")
+    else:
+        not_retrieved = set(resolved_ids) - retrieved_ids
+        if not_retrieved:
+            print(f"IDs not retrieved (no Epoch Photometry data):\n{not_retrieved}")
+
+    return df_dict
 
 def load_csv(file_path):
     """Load a Gaia CSV file.
@@ -317,7 +409,6 @@ def load_csv(file_path):
         pandas.DataFrame: Loaded data.
     """
     return pd.read_csv(file_path)
-
 
 def apply_filter(df):
     """Filter a dataframe, or each dataframe in a dict of dataframes, using a pandas query expression.
