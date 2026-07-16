@@ -10,10 +10,12 @@ Usage:
 """
 
 import pandas as pd
+import matplotlib.pyplot as plt
 from astroquery.gaia import Gaia
 from astroquery.simbad import Simbad
 from astropy.coordinates import SkyCoord
 import astropy.units as u
+from .constants import SPTYPE_TEFF_RANGES
 
 def gaia_login_prompt():
     """Prompt the user to optionally log in to the Gaia archive."""
@@ -26,7 +28,7 @@ def gaia_login_prompt():
         except Exception as e:
             print(f"Login failed: {e}")
 
-def find_common_name(id_result):
+def find_name_and_binaries(id_result):
     """Pull a common name and any binary/multiple star designations from a SIMBAD ID result.
 
     Args:
@@ -45,7 +47,275 @@ def find_common_name(id_result):
             binaries.append(row)
     return common_name, binaries
 
-def resolve_id(identifier):
+def fetch_coordinates(gaia_ids):
+    """Look up RA/Dec (in degrees) for one or more Gaia DR3 source IDs via SIMBAD, for plotting.
+
+    Args:
+        gaia_ids (int or list[int]): Gaia DR3 source ID(s).
+
+    Returns:
+        list[tuple[str, float, float]]: (label, ra_deg, dec_deg) for each ID successfully resolved
+        to a position. Label is the SIMBAD name if available, else the Gaia ID itself.
+    """
+    if isinstance(gaia_ids, int):
+        gaia_ids = [gaia_ids]
+
+    points = []
+    if not gaia_ids:
+        return points
+
+    try:
+        query_names = [f"Gaia DR3 {gid}" for gid in gaia_ids]
+        result = Simbad.query_objects(query_names)
+    except Exception as e:
+        print(f"  (coordinate lookup for plotting failed: {e})")
+        return points
+
+    if result is None:
+        return points
+
+    for i, row in enumerate(result):
+        gid = gaia_ids[i] if i < len(gaia_ids) else None
+        try:
+            label = str(row["main_id"]) if "main_id" in result.colnames and row["main_id"] else str(gid)
+
+            if "ra" in result.colnames and "dec" in result.colnames:
+                ra_val, dec_val = row["ra"], row["dec"]
+            else:
+                ra_val, dec_val = row["RA"], row["DEC"]
+
+            if isinstance(ra_val, str):
+                coord = SkyCoord(ra=ra_val, dec=dec_val, unit=(u.hourangle, u.deg))
+            else:
+                coord = SkyCoord(ra=ra_val * u.deg, dec=dec_val * u.deg)
+
+            points.append((label, coord.ra.deg, coord.dec.deg))
+        except Exception:
+            continue
+
+    return points
+
+def plot_positions(points, title, save_plot=False, plot_file_name=None, center=None, radius_deg=None):
+    """Plot RA/Dec positions on a simple matplotlib scatter plot.
+
+    Args:
+        points (list[tuple[str, float, float]]): (label, ra_deg, dec_deg) for each point to plot.
+        title (str): Plot title.
+        save_plot (bool, optional): Whether to save the plot to an image file. Defaults to False.
+        plot_file_name (str, optional): Name or path for the saved plot image. Defaults to "plot"
+            if save_plot is True and no name is given.
+        center (tuple[float, float], optional): (ra_deg, dec_deg) center of a search area to mark. Defaults to None.
+        radius_deg (float, optional): Search radius in degrees, drawn as a dashed circle around center. Defaults to None.
+    """
+    if not points:
+        print("  (nothing to plot - no coordinates available)")
+        return
+
+    try:
+        fig, ax = plt.subplots(figsize=(7, 6))
+
+        ras = [p[1] for p in points]
+        decs = [p[2] for p in points]
+        ax.scatter(ras, decs, c="tab:blue", s=40, zorder=3)
+
+        for label, ra, dec in points:
+            ax.annotate(label, (ra, dec), fontsize=8, xytext=(4, 4), textcoords="offset points")
+
+        if center is not None and radius_deg is not None:
+            circle = plt.Circle(center, radius_deg, fill=False, edgecolor="tab:red", linestyle="--", zorder=2)
+            ax.add_patch(circle)
+            ax.scatter([center[0]], [center[1]], marker="x", c="tab:red", s=60, zorder=4, label="search center")
+            ax.legend(loc="upper right", fontsize=8)
+
+        ax.set_xlabel("RA (deg)")
+        ax.set_ylabel("Dec (deg)")
+        ax.set_title(title)
+        ax.invert_xaxis()
+        plt.tight_layout()
+
+        if save_plot:
+            formatted_name = (plot_file_name or "plot").replace(" ", "_")
+            if not formatted_name.lower().endswith((".png", ".jpg", ".jpeg", ".pdf", ".svg")):
+                formatted_name = f"{formatted_name}.png"
+            fig.savefig(formatted_name)
+            print(f"  Plot saved to {formatted_name}")
+
+        plt.show()
+    except Exception as e:
+        print(f"  (plotting skipped: {e})")
+
+def resolve_search_position(ra=None, dec=None, coordinates=None):
+    """Resolve an RA/Dec position from either sexagesimal strings or a SkyCoord.
+
+    Args:
+        ra (str or float, optional): Right ascension, as a sexagesimal string (e.g. "10h21m00s") when
+            paired with a string `dec`. Defaults to None.
+        dec (str or float, optional): Declination, as a sexagesimal string (e.g. "+41d05m00s") when
+            paired with a string `ra`. Defaults to None.
+        coordinates (astropy.coordinates.SkyCoord, optional): Sky position to use if `ra`/`dec` are
+            not given. Defaults to None.
+
+    Returns:
+        tuple[float, float]: (ra_deg, dec_deg).
+
+    Raises:
+        ValueError: If neither a valid ra/dec pair nor coordinates is given.
+    """
+    if type(ra) == str and type(dec) == str:
+        deg_coord = SkyCoord(ra, dec, unit=(u.hourangle, u.deg))
+        ra = deg_coord.ra.deg
+        dec = deg_coord.dec.deg
+    elif (ra is None and dec is None) and coordinates is not None:
+        ra = coordinates.ra.deg
+        dec = coordinates.dec.deg
+
+    if ra is None or dec is None:
+        raise ValueError("Provide either (ra and dec) as strings, or coordinates as a SkyCoord.")
+
+    return ra, dec
+
+def fetch_common_names(gaia_ids):
+    """Look up SIMBAD common names for one or more Gaia DR3 source IDs, in a single batched call.
+
+    Args:
+        gaia_ids (list[int]): Gaia DR3 source ID(s).
+
+    Returns:
+        dict[int, str]: Maps each Gaia ID that SIMBAD has a record for to its SIMBAD main_id.
+        IDs with no SIMBAD record are simply absent from the returned dict.
+    """
+    names = {}
+    if not gaia_ids:
+        return names
+
+    try:
+        query_names = [f"Gaia DR3 {gid}" for gid in gaia_ids]
+        result = Simbad.query_objects(query_names)
+    except Exception as e:
+        print(f"  (common name lookup failed: {e})")
+        return names
+
+    if result is None:
+        return names
+
+    for i, row in enumerate(result):
+        gid = gaia_ids[i] if i < len(gaia_ids) else None
+        if gid is None:
+            continue
+        try:
+            if "main_id" in result.colnames and row["main_id"]:
+                names[gid] = str(row["main_id"])
+        except Exception:
+            continue
+
+    return names
+
+def sanity_check_star(gaia_ids, teff_tolerance=2000):
+    """Cross-check Gaia's own data against SIMBAD's spectral type, to flag possible mismatches.
+
+    Compares Gaia's photometric temperature (teff_gspphot) against the temperature range implied
+    by SIMBAD's spectral type. A large disagreement can be a sign of a wrong cross-match or 
+    another data issue worth double-checking.
+
+    Args:
+        gaia_ids (int or list[int]): Gaia DR3 source ID(s) to check.
+        teff_tolerance (float, optional): How many Kelvin Gaia's teff_gspphot can fall outside the
+            spectral-type-implied range before being flagged. Defaults to 2000 K.
+
+    Returns:
+        pandas.DataFrame: One row per ID, with a 'common_name' column plus Gaia and SIMBAD fields
+        side by side, and a 'flag' column (empty string if no mismatch was detected).
+    """
+    if isinstance(gaia_ids, int):
+        gaia_ids = [gaia_ids]
+
+    columns_out = ["gaia_id", "common_name", "gaia_g_mag", "gaia_teff", "simbad_sp_type", "simbad_v_mag", "flag"]
+    if not gaia_ids:
+        return pd.DataFrame(columns=columns_out)
+
+    # One batched Gaia query for photometry + photometric temperature.
+    gaia_data = {}
+    try:
+        id_list = ",".join(str(g) for g in gaia_ids)
+        gaia_query = f"""
+        SELECT g.source_id, g.phot_g_mean_mag, ap.teff_gspphot
+        FROM gaiadr3.gaia_source AS g
+        JOIN gaiadr3.astrophysical_parameters AS ap ON g.source_id = ap.source_id
+        WHERE g.source_id IN ({id_list})
+        """
+        job = Gaia.launch_job(gaia_query)
+        gaia_df = job.get_results().to_pandas()
+        for _, row in gaia_df.iterrows():
+            gaia_data[int(row["source_id"])] = (row.get("phot_g_mean_mag"), row.get("teff_gspphot"))
+    except Exception as e:
+        print(f"  (Gaia lookup for sanity check failed: {e})")
+
+    # One batched SIMBAD query for common name, spectral type, and V magnitude.
+    common_names, sp_types, v_mags = {}, {}, {}
+    try:
+        Simbad.add_votable_fields('sp_type', 'flux(V)')
+    except Exception as e:
+        print(f"  (could not request SIMBAD sp_type/V-mag fields: {e})")
+
+    try:
+        query_names = [f"Gaia DR3 {gid}" for gid in gaia_ids]
+        result = Simbad.query_objects(query_names)
+    except Exception as e:
+        result = None
+        print(f"  (SIMBAD lookup for sanity check failed: {e})")
+
+    if result is not None:
+        for i, row in enumerate(result):
+            gid = gaia_ids[i] if i < len(gaia_ids) else None
+            if gid is None:
+                continue
+            try:
+                if "main_id" in result.colnames and row["main_id"]:
+                    common_names[gid] = str(row["main_id"])
+                if "sp_type" in result.colnames and row["sp_type"]:
+                    sp_types[gid] = str(row["sp_type"])
+                for v_col in ("flux_V", "FLUX_V"):
+                    if v_col in result.colnames:
+                        v_val = row[v_col]
+                        if v_val is not None and not (hasattr(v_val, "mask") and v_val.mask):
+                            v_mags[gid] = float(v_val)
+                            break
+            except Exception:
+                continue
+
+    rows = []
+    n_flagged = 0
+    for gid in gaia_ids:
+        gaia_g_mag, gaia_teff = gaia_data.get(gid, (None, None))
+        sp_type = sp_types.get(gid)
+
+        flag = ""
+        teff_range = SPTYPE_TEFF_RANGES.get(str(sp_type).strip()[0:1].upper()) if sp_type else None
+        if teff_range is not None and gaia_teff is not None and not pd.isna(gaia_teff):
+            low, high = teff_range
+            if gaia_teff < low - teff_tolerance or gaia_teff > high + teff_tolerance:
+                flag = f"Possible mismatch: SIMBAD type '{sp_type}' implies ~{low}-{high} K, Gaia teff_gspphot={gaia_teff:.0f} K"
+                n_flagged += 1
+
+        rows.append({
+            "gaia_id": gid,
+            "common_name": common_names.get(gid),
+            "gaia_g_mag": gaia_g_mag,
+            "gaia_teff": gaia_teff,
+            "simbad_sp_type": sp_type,
+            "simbad_v_mag": v_mags.get(gid),
+            "flag": flag,
+        })
+
+    df = pd.DataFrame(rows, columns=columns_out)
+    print(f"Sanity check: {len(df)} source(s) checked, {n_flagged} flagged as possible mismatch(es).")
+    if n_flagged > 0:
+        for _, r in df[df["flag"] != ""].iterrows():
+            print(f"  [{r['gaia_id']}] {r['flag']}")
+
+    return df
+
+def resolve_id(identifier, plot=True, save_plot=False, plot_file_name=None, sanity_check=False):
     """Convert a star or cluster identifier to its Gaia DR3 source ID(s).
 
     Numeric input is returned as-is and is assumed to be a valid Gaia DR3 source ID. 
@@ -56,6 +326,12 @@ def resolve_id(identifier):
 
     Args:
         identifier (int or str): Gaia source ID, or any SIMBAD recognized star or cluster name/identifier.
+        plot (bool, optional): Whether to plot the resolved position(s). Defaults to True.
+        save_plot (bool, optional): Whether to save the plot to an image file. Defaults to False.
+        plot_file_name (str, optional): Name or path for the saved plot image. Defaults to None.
+        sanity_check (bool, optional): Whether to cross-check the resolved star(s) against SIMBAD's
+            spectral type via sanity_check_star, and print any flagged mismatches. Adds 2 extra
+            network calls when True. Defaults to False.
 
     Returns:
         int or list[int] or None: A single Gaia DR3 source ID if the identifier resolves directly, 
@@ -66,7 +342,7 @@ def resolve_id(identifier):
         gaia_id = int(identifier)
         id_result = Simbad.query_objectids(f"Gaia DR3 {gaia_id}")
         if id_result is not None:
-            common_name, binaries = find_common_name(id_result)
+            common_name, binaries = find_name_and_binaries(id_result)
             if common_name:
                 print(f"Resolved: {gaia_id} (numeric ID, used as-is) -> common name: {common_name}")
             else:
@@ -75,11 +351,19 @@ def resolve_id(identifier):
                 print(f"  Binary/multiple star designation(s) found: {binaries}")
         else:
             print(f"Resolved: {gaia_id} (numeric ID, used as-is)")
+
+        if plot:
+            points = fetch_coordinates(gaia_id)
+            plot_positions(points, title=f"Cross-match position for {gaia_id}", save_plot=save_plot, plot_file_name=plot_file_name)
+
+        if sanity_check:
+            sanity_check_star(gaia_id)
+
         return gaia_id
 
     result = Simbad.query_objectids(identifier)
     if result is not None:
-        common_name, binaries = find_common_name(result)
+        common_name, binaries = find_name_and_binaries(result)
         for row in result["id"]:
             if row.startswith("Gaia DR3 "):
                 gaia_id = int(row.replace("Gaia DR3 ", ""))
@@ -89,6 +373,14 @@ def resolve_id(identifier):
                     print(f"Resolved: '{identifier}' -> Gaia DR3 {gaia_id}")
                 if binaries:
                     print(f"  Binary/multiple star designation(s) found: {binaries}")
+
+                if plot:
+                    points = fetch_coordinates(gaia_id)
+                    plot_positions(points, title=f"Cross-match position for '{identifier}'", save_plot=save_plot, plot_file_name=plot_file_name)
+
+                if sanity_check:
+                    sanity_check_star(gaia_id)
+
                 return gaia_id
 
     children = Simbad.query_hierarchy(identifier, hierarchy="children")
@@ -116,7 +408,7 @@ def resolve_id(identifier):
             continue
 
         resolved_ids.append(gaia_id)
-        common_name, binaries = find_common_name(child_ids)
+        common_name, binaries = find_name_and_binaries(child_ids)
         if common_name and common_name != str(child_name):
             line = f"{child_name} ({common_name}) -> Gaia DR3 {gaia_id}"
         else:
@@ -135,6 +427,13 @@ def resolve_id(identifier):
     if unresolved_children:
         print(f"Could not resolve {len(unresolved_children)} child(ren) of '{identifier}': {unresolved_children}")
 
+    if plot:
+        points = fetch_coordinates(resolved_ids)
+        plot_positions(points, title=f"Cross-match positions for children of '{identifier}'", save_plot=save_plot, plot_file_name=plot_file_name)
+
+    if sanity_check:
+        sanity_check_star(resolved_ids)
+
     return resolved_ids
 
 def query_by_adql(adql_query: str = None, save_file: bool = False, file_name: str = None, identifier: int | str = None):
@@ -151,7 +450,7 @@ def query_by_adql(adql_query: str = None, save_file: bool = False, file_name: st
 
     Note:
         Because an identifier can resolve to more than one Gaia ID, any custom 'adql_query' you write should 
-        use an 'IN ({source_id})' clause rather than '= {source_id}'. With '=', a query will work for a 
+        use an 'IN ({source_id})' clause rather than '= {source_id}'. With '=', a query will work fine for a 
         single resolved ID, but will fail with an ADQL syntax error if 'identifier' resolves to multiple IDs.
 
     Args:
@@ -213,12 +512,23 @@ def find_star(
     columns: str = '*',
     save_file: bool = False,
     file_name: str = "star_query",
-    degree_range: float = 0.0001
+    degree_range: float = 0.0001,
+    mag_min: float = None,
+    mag_max: float = None,
+    mag_band: str = "phot_g_mean_mag",
+    dist_min: float = None,
+    dist_max: float = None,
+    plot: bool = True,
+    save_plot: bool = False,
+    plot_file_name: str = None
 ):
     """Query Gaia for sources within a small radius of a sky position.
 
     The position can be supplied either as sexagesimal RA/Dec strings, or as an astropy SkyCoord. Exactly one 
     of these input forms must resolve to a usable position, or a ValueError is raised.
+
+    Optionally, results can be filtered by magnitude and/or distance. Both are hard filters applied directly
+    in the ADQL query, regardless of whether the filtered column is included in 'columns'.
 
     Args:
         ra (str or float, optional): Right ascension, as a sexagesimal string (e.g. "10h21m00s") when paired 
@@ -231,23 +541,38 @@ def find_star(
         save_file (bool, optional): Whether to save the result to a CSV file. Defaults to False.
         file_name (str, optional): Name for the saved CSV file. Defaults to "star_query".
         degree_range (float, optional): Search radius in degrees. Defaults to 0.0001.
+        mag_min (float, optional): Faintest magnitude to include. Defaults to None (no lower cutoff).
+        mag_max (float, optional): Brightest magnitude to include. Defaults to None (no upper cutoff).
+        mag_band (str, optional): Gaia magnitude column to filter on. Defaults to "phot_g_mean_mag".
+        dist_min (float, optional): Nearest distance to include, in parsecs. Defaults to None (no lower cutoff).
+        dist_max (float, optional): Farthest distance to include, in parsecs. Defaults to None (no upper cutoff).
+        plot (bool, optional): Whether to plot the found source(s). Defaults to True.
+        save_plot (bool, optional): Whether to save the plot to an image file. Defaults to False.
+        plot_file_name (str, optional): Name or path for the saved plot image. Defaults to None.
 
     Returns:
-        pandas.DataFrame: Query results.
+        pandas.DataFrame: Query results, with an added 'common_name' column from SIMBAD (blank for
+        sources SIMBAD has no record of).
 
     Raises:
         ValueError: If neither a valid ra/dec pair nor coordinates is given.
     """
-    if type(ra) == str and type(dec) == str:
-        deg_coord = SkyCoord(ra, dec, unit=(u.hourangle, u.deg))
-        ra = deg_coord.ra.deg
-        dec = deg_coord.dec.deg
-    elif (ra is None and dec is None) and coordinates is not None:
-        ra = coordinates.ra.deg
-        dec = coordinates.dec.deg
+    ra, dec = resolve_search_position(ra, dec, coordinates)
 
-    if ra is None or dec is None:
-        raise ValueError("Provide either (ra and dec) as strings, or coordinates as a SkyCoord.")
+    conditions = []
+    if mag_min is not None:
+        conditions.append(f"{mag_band} >= {mag_min}")
+    if mag_max is not None:
+        conditions.append(f"{mag_band} <= {mag_max}")
+    if dist_max is not None and dist_max > 0:
+        conditions.append(f"parallax >= {1000 / dist_max}")
+    if dist_min is not None and dist_min > 0:
+        conditions.append(f"parallax <= {1000 / dist_min}")
+
+    extra_filter = ""
+    if conditions:
+        extra_filter = " AND " + " AND ".join(conditions)
+        print(f"Filter: {' AND '.join(conditions)}")
 
     query = f"""
     SELECT TOP 10 {columns}
@@ -255,12 +580,16 @@ def find_star(
     WHERE CONTAINS(
         POINT('ICRS', ra, dec),
         CIRCLE('ICRS', {ra}, {dec}, {degree_range})
-    ) = 1
+    ) = 1{extra_filter}
     """
     if save_file:
         df = query_by_adql(query, save_file=True, file_name=file_name)
     else:
         df = query_by_adql(query)
+
+    if df is not None and "source_id" in df.columns:
+        common_names = fetch_common_names(df["source_id"].tolist())
+        df["common_name"] = df["source_id"].map(common_names)
 
     if df is not None:
         print(f"Found {len(df)} source(s) within {degree_range} deg.")
@@ -279,53 +608,183 @@ def find_star(
                         types.append("eclipsing")
                     print(f"    source_id {row['source_id']}: {', '.join(types) if types else f'flag={flags}'}")
 
+    if plot and df is not None and "ra" in df.columns and "dec" in df.columns:
+        points = [(str(row.get("source_id", i)), row["ra"], row["dec"]) for i, row in df.iterrows()]
+        plot_positions(
+            points,
+            title=f"Cone search near (ra={ra:.4f}, dec={dec:.4f})",
+            save_plot=save_plot,
+            plot_file_name=plot_file_name,
+            center=(ra, dec),
+            radius_deg=degree_range,
+        )
+
     return df
 
-def find_cluster(ra, dec, distance):
-    """Find the cluster nearest in distance to a given sky position, using SIMBAD.
+def find_cluster(
+    ra: str | float = None,
+    dec: str | float = None,
+    coordinates: SkyCoord = None,
+    distance: float = None,
+    mag_min: float = None,
+    mag_max: float = None,
+    mag_band: str = "V",
+    search_radius_deg: float = 2.0,
+    top_n: int = 10,
+    save_file: bool = False,
+    file_name: str = "cluster_query",
+    plot: bool = True,
+    save_plot: bool = False,
+    plot_file_name: str = None
+):
+    """Find cluster-type objects near a sky position, using SIMBAD.
+
+    The position can be supplied either as sexagesimal RA/Dec strings, or as an astropy SkyCoord, same as
+    find_star. Candidates are ranked by angular separation from the given position, not by distance,
+    since many SIMBAD cluster records have no parallax on file. If a candidate does have a parallax, its
+    implied distance is shown for context and compared against 'distance' if given, but this is not used
+    to include/exclude/rank a candidate.
+
+    Magnitude filtering is a soft filter: a candidate is only excluded if it has magnitude data on file AND
+    that data is outside the given range. Candidates with no magnitude data are kept, since SIMBAD's cluster
+    records are inconsistently populated for this field.
 
     Args:
-        ra (float): Right ascension in degrees.
-        dec (float): Declination in degrees.
-        distance (float): Distance to the star in parsecs.
+        ra (str or float, optional): Right ascension, as a sexagesimal string (e.g. "10h21m00s") when paired
+            with a string `dec`. Defaults to None.
+        dec (str or float, optional): Declination, as a sexagesimal string (e.g. "+41d05m00s") when paired
+            with a string `ra`. Defaults to None.
+        coordinates (astropy.coordinates.SkyCoord, optional): Sky position to search around, used if `ra`/`dec`
+            are not given. Defaults to None.
+        distance (float, optional): Distance to compare against, in parsecs, shown for informational
+            comparison only. Defaults to None (no comparison shown).
+        mag_min (float, optional): Faintest magnitude to include. Defaults to None (no lower cutoff).
+        mag_max (float, optional): Brightest magnitude to include. Defaults to None (no upper cutoff).
+        mag_band (str, optional): SIMBAD photometric band to filter on. Defaults to "V".
+        search_radius_deg (float, optional): Search radius in degrees. Defaults to 2.0.
+        top_n (int, optional): Maximum number of candidates to return, ranked by angular separation.
+            Defaults to 10.
+        save_file (bool, optional): Whether to save the result to a CSV file. Defaults to False.
+        file_name (str, optional): Name for the saved CSV file. Defaults to "cluster_query".
+        plot (bool, optional): Whether to plot the returned candidate(s). Defaults to True.
+        save_plot (bool, optional): Whether to save the plot to an image file. Defaults to False.
+        plot_file_name (str, optional): Name or path for the saved plot image. Defaults to None.
 
     Returns:
-        str or None: Name of the best matching cluster, or None if no match is found.
+        pandas.DataFrame: Up to 'top_n' candidate clusters, sorted by angular separation, with columns
+        'name', 'ra', 'dec', 'otype', 'separation_deg', 'plx_value', 'implied_distance_pc',
+        'distance_diff_pc', and 'mag'. Empty (but same columns) if nothing is found.
+
+    Raises:
+        ValueError: If neither a valid ra/dec pair nor coordinates is given.
     """
+    ra, dec = resolve_search_position(ra, dec, coordinates)
+
+    columns_out = [
+        "name", "ra", "dec", "otype", "separation_deg",
+        "plx_value", "implied_distance_pc", "distance_diff_pc", "mag",
+    ]
+
     Simbad.add_votable_fields('otype', 'parallax')
+    if mag_min is not None or mag_max is not None:
+        try:
+            Simbad.add_votable_fields(f'flux({mag_band})')
+        except Exception as e:
+            print(f"  (could not request magnitude field '{mag_band}', filter will be skipped: {e})")
+
     coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
-    result = Simbad.query_region(coord, radius=0.5 * u.deg)
+    result = Simbad.query_region(coord, radius=search_radius_deg * u.deg)
 
     if result is None:
-        return None
+        print(f"Cluster match: no SIMBAD objects found within {search_radius_deg} deg of (ra={ra}, dec={dec}).")
+        return pd.DataFrame(columns=columns_out)
 
-    best_name, best_diff = None, None
-    checked, skipped_plx = 0, 0
+    candidates = []
+    checked = 0
     for row in result:
-        if row["otype"] not in ("Cl*", "OpC", "GlC", "As*"):
+        if not str(row["otype"]).startswith(("Cl*", "OpC", "GlC", "As*")):
             continue
-        plx = row["plx_value"]
-        if not plx or plx <= 0:
-            skipped_plx += 1
+
+        try:
+            if "ra" in result.colnames and "dec" in result.colnames:
+                row_ra, row_dec = row["ra"], row["dec"]
+            else:
+                row_ra, row_dec = row["RA"], row["DEC"]
+            if isinstance(row_ra, str):
+                row_coord = SkyCoord(ra=row_ra, dec=row_dec, unit=(u.hourangle, u.deg))
+            else:
+                row_coord = SkyCoord(ra=row_ra * u.deg, dec=row_dec * u.deg)
+        except Exception:
             continue
+
+        mag_val = None
+        if mag_min is not None or mag_max is not None:
+            for mag_col in (f"flux_{mag_band}", f"FLUX_{mag_band}", mag_band.lower(), mag_band.upper()):
+                if mag_col in result.colnames:
+                    try:
+                        candidate_val = row[mag_col]
+                        if candidate_val is not None and not (hasattr(candidate_val, "mask") and candidate_val.mask):
+                            mag_val = float(candidate_val)
+                            break
+                    except Exception:
+                        continue
+            # Soft filter: only exclude when magnitude data IS present and out of range.
+            if mag_val is not None:
+                if mag_min is not None and mag_val < mag_min:
+                    continue
+                if mag_max is not None and mag_val > mag_max:
+                    continue
 
         checked += 1
-        diff = abs((1000 / plx) - distance)
-        if best_diff is None or diff < best_diff:
-            best_diff, best_name = diff, row["main_id"]
+        sep = coord.separation(row_coord).deg
 
-    if best_name is not None:
-        print(
-            f"Cluster match: checked {checked} candidate(s) ({skipped_plx} skipped for missing/invalid "
-            f"parallax); best match '{best_name}' (distance diff={best_diff:.2f} pc)."
-        )
-    else:
-        print(
-            f"Cluster match: checked {checked} candidate(s) ({skipped_plx} skipped for missing/invalid "
-            f"parallax); no match found."
+        plx = row["plx_value"]
+        plx_val = float(plx) if plx and plx > 0 else None
+        implied_distance = 1000 / plx_val if plx_val else None
+        distance_diff = (
+            abs(implied_distance - distance) if (implied_distance is not None and distance is not None) else None
         )
 
-    return best_name
+        candidates.append({
+            "name": str(row["main_id"]),
+            "ra": row_coord.ra.deg,
+            "dec": row_coord.dec.deg,
+            "otype": str(row["otype"]),
+            "separation_deg": sep,
+            "plx_value": plx_val,
+            "implied_distance_pc": implied_distance,
+            "distance_diff_pc": distance_diff,
+            "mag": mag_val,
+        })
+
+    if not candidates:
+        print(f"Cluster match: checked {checked} candidate(s) near (ra={ra}, dec={dec}); no match found.")
+        return pd.DataFrame(columns=columns_out)
+
+    df = pd.DataFrame(candidates).sort_values("separation_deg").head(top_n).reset_index(drop=True)
+
+    print(
+        f"Cluster match: checked {checked} candidate(s) near (ra={ra}, dec={dec}); "
+        f"returning top {len(df)} by angular separation."
+    )
+
+    if save_file:
+        formatted_name = file_name.replace(" ", "_")
+        formatted_name = f"{formatted_name}.csv"
+        df.to_csv(formatted_name)
+
+    if plot and "ra" in df.columns and "dec" in df.columns:
+        points = [(row["name"], row["ra"], row["dec"]) for _, row in df.iterrows()]
+        plot_positions(
+            points,
+            title=f"Candidate clusters near (ra={ra}, dec={dec})",
+            save_plot=save_plot,
+            plot_file_name=plot_file_name,
+            center=(ra, dec),
+            radius_deg=search_radius_deg,
+        )
+
+    return df
 
 def query_by_datalink(
     gaia_ids: int | list[int],
@@ -361,6 +820,7 @@ def query_by_datalink(
     if isinstance(gaia_ids, (int, str)):
         gaia_ids = [gaia_ids]
 
+    # resolve_id may return a single int (direct match) or a list[int]
     resolved_ids = []
     for gid in gaia_ids:
         resolved = resolve_id(gid)
