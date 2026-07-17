@@ -23,8 +23,19 @@ from gaiadr3_analysis.gaia_input import (
     get_dataframe,
 )
 
-# A 26-character filler used to build fake Datalink keys for tests.
+# A 26-character filler used to build fake Datalink keys for tests
 KEY_PREFIX = "A" * 26
+
+class FakeTable(list):
+    """A minimal stand-in for an astropy Table: a list of dict-like rows plus a colnames attribute.
+
+    Used to mock SIMBAD query results (query_hierarchy, query_region, query_objects), which the
+    code under test accesses via row["column"] and checks "column" in result.colnames.
+    """
+    def __init__(self, rows, colnames):
+        super().__init__(rows)
+        self.colnames = colnames
+
 
 # Fixtures
 @pytest.fixture
@@ -175,16 +186,44 @@ def test_apply_filter_empty_dict_returns_empty_dict():
     result = apply_filter({})
     assert result == {}
 
-# resolve_id
-def test_resolve_id_numeric_string_returns_int():
-    """Checks that a purely numeric string identifier is returned as an int without querying SIMBAD."""
-    result = resolve_id("123456789")
+# resolve_id: numeric / direct-match branches
+@patch("gaiadr3_analysis.gaia_input.Simbad")
+def test_resolve_id_numeric_string_returns_int(mock_simbad):
+    """Checks that a purely numeric string identifier is returned as an int without a SIMBAD common name.
+
+    Args:
+        mock_simbad: Mocked Simbad class from astroquery.
+    """
+    mock_simbad.query_objectids.return_value = None
+    with patch("builtins.print"):
+        result = resolve_id("123456789", plot=False)
     assert result == 123456789
 
-def test_resolve_id_int_input_returns_int():
-    """Checks that an integer identifier is returned as-is."""
-    result = resolve_id(987654321)
+@patch("gaiadr3_analysis.gaia_input.Simbad")
+def test_resolve_id_int_input_returns_int(mock_simbad):
+    """Checks that an integer identifier is returned as-is.
+
+    Args:
+        mock_simbad: Mocked Simbad class from astroquery.
+    """
+    mock_simbad.query_objectids.return_value = None
+    with patch("builtins.print"):
+        result = resolve_id(987654321, plot=False)
     assert result == 987654321
+
+@patch("gaiadr3_analysis.gaia_input.Simbad")
+def test_resolve_id_numeric_id_prints_common_name(mock_simbad):
+    """Checks that a numeric ID with a SIMBAD 'NAME ' entry prints that common name.
+
+    Args:
+        mock_simbad: Mocked Simbad class from astroquery.
+    """
+    mock_simbad.query_objectids.return_value = {"id": ["NAME Proxima Centauri", "Gaia DR3 123456789"]}
+    with patch("builtins.print") as mock_print:
+        result = resolve_id(123456789, plot=False)
+    assert result == 123456789
+    printed = " ".join(str(call.args) for call in mock_print.call_args_list)
+    assert "Proxima Centauri" in printed
 
 @patch("gaiadr3_analysis.gaia_input.Simbad")
 def test_resolve_id_direct_cross_match(mock_simbad):
@@ -194,7 +233,8 @@ def test_resolve_id_direct_cross_match(mock_simbad):
         mock_simbad: Mocked Simbad class from astroquery.
     """
     mock_simbad.query_objectids.return_value = {"id": ["HD 209458", "Gaia DR3 1234567890123456789"]}
-    result = resolve_id("HD 209458")
+    with patch("builtins.print"):
+        result = resolve_id("HD 209458", plot=False)
     assert result == 1234567890123456789
 
 @patch("gaiadr3_analysis.gaia_input.Simbad")
@@ -207,40 +247,7 @@ def test_resolve_id_no_match_at_all_returns_none(mock_simbad):
     mock_simbad.query_objectids.return_value = None
     mock_simbad.query_hierarchy.return_value = None
     with patch("builtins.print"):
-        result = resolve_id("Nonexistent Object")
-    assert result is None
-
-@patch("gaiadr3_analysis.gaia_input.Simbad")
-def test_resolve_id_resolves_children_to_list(mock_simbad):
-    """Checks that an identifier with no direct match but resolvable children returns a list of IDs.
-
-    Args:
-        mock_simbad: Mocked Simbad class from astroquery.
-    """
-    mock_simbad.query_objectids.side_effect = [
-        None,
-        {"id": ["Gaia DR3 111"]},
-        {"id": ["Gaia DR3 222"]},
-    ]
-    mock_simbad.query_hierarchy.return_value = {"main_id": ["Star A", "Star B"]}
-
-    result = resolve_id("NGC 188")
-
-    assert result == [111, 222]
-
-@patch("gaiadr3_analysis.gaia_input.Simbad")
-def test_resolve_id_children_found_but_none_have_gaia_id(mock_simbad):
-    """Checks that resolve_id returns None when children exist but none have a Gaia DR3 cross-match.
-
-    Args:
-        mock_simbad: Mocked Simbad class from astroquery.
-    """
-    mock_simbad.query_objectids.side_effect = [None, {"id": ["HD 1"]}, {"id": ["HD 2"]}]
-    mock_simbad.query_hierarchy.return_value = {"main_id": ["Star A", "Star B"]}
-
-    with patch("builtins.print"):
-        result = resolve_id("Cluster")
-
+        result = resolve_id("Nonexistent Object", plot=False)
     assert result is None
 
 @patch("gaiadr3_analysis.gaia_input.Simbad")
@@ -251,68 +258,418 @@ def test_resolve_id_empty_children_table_returns_none(mock_simbad):
         mock_simbad: Mocked Simbad class from astroquery.
     """
     mock_simbad.query_objectids.return_value = None
-    mock_simbad.query_hierarchy.return_value = []
-
+    mock_simbad.query_hierarchy.return_value = FakeTable([], colnames=["main_id", "otype"])
     with patch("builtins.print"):
-        result = resolve_id("Empty Object")
-
+        result = resolve_id("Empty Object", plot=False)
     assert result is None
 
-# find_cluster
+# resolve_id: cluster children
 @patch("gaiadr3_analysis.gaia_input.Simbad")
-def test_find_cluster_returns_none_when_no_region_results(mock_simbad):
-    """Checks that find_cluster returns None when query_region finds nothing nearby.
+def test_resolve_id_resolves_children_to_list(mock_simbad):
+    """Checks that an identifier with no direct match but resolvable children returns a list of IDs.
+
+    Args:
+        mock_simbad: Mocked Simbad class from astroquery.
+    """
+    mock_simbad.query_objectids.return_value = None
+    mock_simbad.query_hierarchy.return_value = FakeTable(
+        [{"main_id": "Star A", "otype": "*"}, {"main_id": "Star B", "otype": "*"}],
+        colnames=["main_id", "otype"],
+    )
+    mock_simbad.query_tap.return_value = [
+        {"input_name": "Star A", "alias": "Gaia DR3 111"},
+        {"input_name": "Star B", "alias": "Gaia DR3 222"},
+    ]
+
+    with patch("builtins.print"):
+        result = resolve_id("NGC 188", plot=False)
+
+    assert result == [111, 222]
+
+@patch("gaiadr3_analysis.gaia_input.Simbad")
+def test_resolve_id_children_found_but_none_have_gaia_id(mock_simbad):
+    """Checks that resolve_id returns an empty list when children exist but none have a Gaia DR3 cross-match.
+
+    Args:
+        mock_simbad: Mocked Simbad class from astroquery.
+    """
+    mock_simbad.query_objectids.return_value = None
+    mock_simbad.query_hierarchy.return_value = FakeTable(
+        [{"main_id": "Star A", "otype": "*"}, {"main_id": "Star B", "otype": "*"}],
+        colnames=["main_id", "otype"],
+    )
+    mock_simbad.query_tap.return_value = []
+
+    with patch("builtins.print"):
+        result = resolve_id("Cluster", plot=False)
+
+    assert result == []
+
+@patch("gaiadr3_analysis.gaia_input.Simbad")
+def test_resolve_id_skips_group_type_children(mock_simbad):
+    """Checks that a child whose otype is itself a group (e.g. a sub-cluster) is skipped.
+
+    Args:
+        mock_simbad: Mocked Simbad class from astroquery.
+    """
+    mock_simbad.query_objectids.return_value = None
+    mock_simbad.query_hierarchy.return_value = FakeTable(
+        [{"main_id": "Sub Cluster", "otype": "Cl*"}, {"main_id": "Star A", "otype": "*"}],
+        colnames=["main_id", "otype"],
+    )
+    mock_simbad.query_tap.return_value = [{"input_name": "Star A", "alias": "Gaia DR3 111"}]
+
+    with patch("builtins.print"):
+        result = resolve_id("Cluster", plot=False)
+
+    assert result == [111]
+
+@patch("gaiadr3_analysis.gaia_input.Simbad")
+def test_resolve_id_dedupes_duplicate_gaia_ids(mock_simbad):
+    """Checks that the same Gaia ID reached via two different SIMBAD names appears only once.
+
+    Args:
+        mock_simbad: Mocked Simbad class from astroquery.
+    """
+    mock_simbad.query_objectids.return_value = None
+    mock_simbad.query_hierarchy.return_value = FakeTable(
+        [{"main_id": "Star A", "otype": "*"}, {"main_id": "Star A Alias", "otype": "*"}],
+        colnames=["main_id", "otype"],
+    )
+    mock_simbad.query_tap.return_value = [
+        {"input_name": "Star A", "alias": "Gaia DR3 111"},
+        {"input_name": "Star A Alias", "alias": "Gaia DR3 111"},
+    ]
+
+    with patch("builtins.print"):
+        result = resolve_id("Cluster", plot=False)
+
+    assert result == [111]
+
+@patch("gaiadr3_analysis.gaia_input.Simbad")
+def test_resolve_id_passes_membership_certainty_criteria(mock_simbad):
+    """Checks that min_membership_certainty is translated into the SIMBAD hierarchy criteria string.
+
+    Args:
+        mock_simbad: Mocked Simbad class from astroquery.
+    """
+    mock_simbad.query_objectids.return_value = None
+    mock_simbad.query_hierarchy.return_value = None
+
+    with patch("builtins.print"):
+        resolve_id("Cluster", plot=False, min_membership_certainty=90)
+
+    _, kwargs = mock_simbad.query_hierarchy.call_args
+    assert kwargs["criteria"] == "h_link.membership >= 90"
+
+@patch("gaiadr3_analysis.gaia_input.Simbad")
+def test_resolve_id_membership_certainty_none_disables_filter(mock_simbad):
+    """Checks that min_membership_certainty=None sends no criteria filter to SIMBAD.
+
+    Args:
+        mock_simbad: Mocked Simbad class from astroquery.
+    """
+    mock_simbad.query_objectids.return_value = None
+    mock_simbad.query_hierarchy.return_value = None
+
+    with patch("builtins.print"):
+        resolve_id("Cluster", plot=False, min_membership_certainty=None)
+
+    _, kwargs = mock_simbad.query_hierarchy.call_args
+    assert kwargs["criteria"] is None
+
+@patch("gaiadr3_analysis.gaia_input.Simbad")
+def test_resolve_id_radius_filter_drops_out_of_range_children(mock_simbad):
+    """Checks that center_ra/center_dec/radius_deg drops children outside that radius.
+
+    Args:
+        mock_simbad: Mocked Simbad class from astroquery.
+    """
+    mock_simbad.query_objectids.return_value = None
+    mock_simbad.query_hierarchy.return_value = FakeTable(
+        [{"main_id": "Star A", "otype": "*"}, {"main_id": "Star B", "otype": "*"}],
+        colnames=["main_id", "otype"],
+    )
+    mock_simbad.query_tap.return_value = [
+        {"input_name": "Star A", "alias": "Gaia DR3 111"},
+        {"input_name": "Star B", "alias": "Gaia DR3 222"},
+    ]
+    mock_simbad.query_objects.return_value = FakeTable(
+        [{"main_id": "Star A", "ra": 10.0, "dec": 20.0}, {"main_id": "Star B", "ra": 50.0, "dec": 60.0}],
+        colnames=["main_id", "ra", "dec"],
+    )
+
+    with patch("builtins.print"):
+        result = resolve_id("Cluster", plot=False, center_ra=10.0, center_dec=20.0, radius_deg=1.0)
+
+    assert result == [111]
+
+@patch("gaiadr3_analysis.gaia_input.Simbad")
+def test_resolve_id_distance_soft_filter_drops_out_of_range_children(mock_simbad):
+    """Checks that dist_min/dist_max drops a child whose implied distance is out of range.
+
+    Args:
+        mock_simbad: Mocked Simbad class from astroquery.
+    """
+    mock_simbad.query_objectids.return_value = None
+    mock_simbad.query_hierarchy.return_value = FakeTable(
+        [{"main_id": "Star A", "otype": "*"}, {"main_id": "Star B", "otype": "*"}],
+        colnames=["main_id", "otype"],
+    )
+    mock_simbad.query_tap.return_value = [
+        {"input_name": "Star A", "alias": "Gaia DR3 111"},
+        {"input_name": "Star B", "alias": "Gaia DR3 222"},
+    ]
+    mock_simbad.query_objects.return_value = FakeTable(
+        [{"main_id": "Star A", "plx_value": 100.0}, {"main_id": "Star B", "plx_value": 1.0}],
+        colnames=["main_id", "plx_value"],
+    )
+
+    with patch("builtins.print"):
+        result = resolve_id("Cluster", plot=False, dist_min=1, dist_max=50)
+
+    assert result == [111]
+
+@patch("gaiadr3_analysis.gaia_input.Simbad")
+def test_resolve_id_distance_soft_filter_keeps_missing_data(mock_simbad):
+    """Checks that a child with no parallax on file is kept, not dropped, by the distance filter.
+
+    Args:
+        mock_simbad: Mocked Simbad class from astroquery.
+    """
+    mock_simbad.query_objectids.return_value = None
+    mock_simbad.query_hierarchy.return_value = FakeTable(
+        [{"main_id": "Star A", "otype": "*"}], colnames=["main_id", "otype"],
+    )
+    mock_simbad.query_tap.return_value = [{"input_name": "Star A", "alias": "Gaia DR3 111"}]
+    mock_simbad.query_objects.return_value = FakeTable(
+        [{"main_id": "Star A", "plx_value": None}], colnames=["main_id", "plx_value"],
+    )
+
+    with patch("builtins.print"):
+        result = resolve_id("Cluster", plot=False, dist_min=1, dist_max=50)
+
+    assert result == [111]
+
+@patch("gaiadr3_analysis.gaia_input.sanity_check_star")
+@patch("gaiadr3_analysis.gaia_input.Simbad")
+def test_resolve_id_calls_sanity_check_when_requested(mock_simbad, mock_sanity):
+    """Checks that sanity_check_star is called with the resolved Gaia ID when sanity_check=True.
+
+    Args:
+        mock_simbad: Mocked Simbad class from astroquery.
+        mock_sanity: Mocked sanity_check_star function.
+    """
+    mock_simbad.query_objectids.return_value = None
+    with patch("builtins.print"):
+        result = resolve_id(111, plot=False, sanity_check=True)
+    assert result == 111
+    mock_sanity.assert_called_once_with(111)
+
+@patch("gaiadr3_analysis.gaia_input.save_dataframe_csv")
+@patch("gaiadr3_analysis.gaia_input.Simbad")
+def test_resolve_id_saves_csv_when_requested(mock_simbad, mock_save):
+    """Checks that save_csv writes a one-row CSV with the resolved star's info.
+
+    Args:
+        mock_simbad: Mocked Simbad class from astroquery.
+        mock_save: Mocked save_dataframe_csv function.
+    """
+    mock_simbad.query_objectids.return_value = None
+    with patch("builtins.print"):
+        resolve_id(111, plot=False, save_csv=True, csv_file_name="my_star")
+
+    mock_save.assert_called_once()
+    df_arg, name_arg, default_arg = mock_save.call_args[0]
+    assert df_arg.iloc[0]["gaia_id"] == 111
+    assert name_arg == "my_star"
+
+# find_cluster
+def test_find_cluster_raises_value_error_without_position():
+    """Checks that find_cluster raises ValueError when no position is given at all."""
+    with pytest.raises(ValueError):
+        find_cluster()
+
+@patch("gaiadr3_analysis.gaia_input.Simbad")
+def test_find_cluster_returns_empty_df_when_no_region_results(mock_simbad):
+    """Checks that find_cluster returns an empty DataFrame when query_region finds nothing nearby.
 
     Args:
         mock_simbad: Mocked Simbad class from astroquery.
     """
     mock_simbad.query_region.return_value = None
-    result = find_cluster(ra=10.0, dec=20.0, distance=100.0)
-    assert result is None
+    with patch("builtins.print"):
+        result = find_cluster(ra=10.0, dec=20.0)
+    assert isinstance(result, pd.DataFrame)
+    assert result.empty
 
+@patch("gaiadr3_analysis.gaia_input.resolve_parents_batch")
 @patch("gaiadr3_analysis.gaia_input.Simbad")
-def test_find_cluster_picks_closest_distance_match(mock_simbad):
-    """Checks that find_cluster returns the cluster whose distance best matches the target.
+def test_find_cluster_returns_empty_df_when_no_parent_resolves(mock_simbad, mock_parents):
+    """Checks that find_cluster returns an empty DataFrame when no found star has a resolvable parent.
 
     Args:
         mock_simbad: Mocked Simbad class from astroquery.
+        mock_parents: Mocked resolve_parents_batch function.
     """
-    mock_simbad.query_region.return_value = [
-        {"otype": "OpC", "plx_value": 10.0, "main_id": "Cluster A"},  # 100 pc
-        {"otype": "OpC", "plx_value": 5.0, "main_id": "Cluster B"},   # 200 pc
-    ]
+    mock_simbad.query_region.return_value = FakeTable(
+        [{"main_id": "Star A", "ra": 10.0, "dec": 20.0, "plx_value": 10.0}],
+        colnames=["main_id", "ra", "dec", "plx_value"],
+    )
+    mock_parents.return_value = {"Star A": None}
 
-    result = find_cluster(ra=10.0, dec=20.0, distance=190.0)
-    assert result == "Cluster B"
+    with patch("builtins.print"):
+        result = find_cluster(ra=10.0, dec=20.0)
 
+    assert result.empty
+
+@patch("gaiadr3_analysis.gaia_input.resolve_children_batch")
+@patch("gaiadr3_analysis.gaia_input.resolve_parents_batch")
 @patch("gaiadr3_analysis.gaia_input.Simbad")
-def test_find_cluster_skips_non_cluster_otypes(mock_simbad):
-    """Checks that find_cluster ignores rows whose otype isn't a recognized cluster type.
+def test_find_cluster_groups_members_by_parent(mock_simbad, mock_parents, mock_children):
+    """Checks that stars sharing the same SIMBAD parent are grouped into one candidate cluster.
 
     Args:
         mock_simbad: Mocked Simbad class from astroquery.
+        mock_parents: Mocked resolve_parents_batch function.
+        mock_children: Mocked resolve_children_batch function (used for the cluster's common name).
     """
-    mock_simbad.query_region.return_value = [
-        {"otype": "Star", "plx_value": 10.0, "main_id": "Not A Cluster"},
-    ]
+    mock_simbad.query_region.return_value = FakeTable(
+        [
+            {"main_id": "Star A", "ra": 10.0, "dec": 20.0, "plx_value": 10.0},
+            {"main_id": "Star B", "ra": 10.1, "dec": 20.1, "plx_value": 10.0},
+        ],
+        colnames=["main_id", "ra", "dec", "plx_value"],
+    )
+    mock_parents.return_value = {
+        "Star A": ("Cluster X", "OpC", 90.0),
+        "Star B": ("Cluster X", "OpC", 90.0),
+    }
+    mock_children.return_value = {"Cluster X": {"gaia_id": None, "common_name": "Nice Cluster", "binaries": []}}
 
-    result = find_cluster(ra=10.0, dec=20.0, distance=100.0)
-    assert result is None
+    with patch("builtins.print"):
+        result = find_cluster(ra=10.0, dec=20.0)
 
+    assert len(result) == 1
+    assert result.iloc[0]["name"] == "Cluster X"
+    assert result.iloc[0]["member_count"] == 2
+    assert result.iloc[0]["common_name"] == "Nice Cluster"
+
+@patch("gaiadr3_analysis.gaia_input.resolve_children_batch")
+@patch("gaiadr3_analysis.gaia_input.resolve_parents_batch")
 @patch("gaiadr3_analysis.gaia_input.Simbad")
-def test_find_cluster_skips_nonpositive_parallax(mock_simbad):
-    """Checks that find_cluster ignores rows with zero or negative parallax.
+def test_find_cluster_membership_certainty_excludes_low_and_missing_scores(mock_simbad, mock_parents, mock_children):
+    """Checks that min_membership_certainty excludes low-confidence AND missing-confidence member links.
 
     Args:
         mock_simbad: Mocked Simbad class from astroquery.
+        mock_parents: Mocked resolve_parents_batch function.
+        mock_children: Mocked resolve_children_batch function.
     """
-    mock_simbad.query_region.return_value = [
-        {"otype": "GlC", "plx_value": -1.0, "main_id": "Bad Cluster"},
-        {"otype": "GlC", "plx_value": 0.0, "main_id": "Zero Cluster"},
-    ]
+    mock_simbad.query_region.return_value = FakeTable(
+        [
+            {"main_id": "Star A", "ra": 10.0, "dec": 20.0, "plx_value": 10.0},
+            {"main_id": "Star B", "ra": 10.0, "dec": 20.0, "plx_value": 10.0},
+            {"main_id": "Star C", "ra": 10.0, "dec": 20.0, "plx_value": 10.0},
+        ],
+        colnames=["main_id", "ra", "dec", "plx_value"],
+    )
+    mock_parents.return_value = {
+        "Star A": ("Cluster X", "OpC", 90.0),
+        "Star B": ("Cluster X", "OpC", 50.0),
+        "Star C": ("Cluster X", "OpC", None),
+    }
+    mock_children.return_value = {}
 
-    result = find_cluster(ra=10.0, dec=20.0, distance=100.0)
-    assert result is None
+    with patch("builtins.print"):
+        result = find_cluster(ra=10.0, dec=20.0, min_membership_certainty=80)
+
+    assert result.iloc[0]["member_count"] == 1
+
+@patch("gaiadr3_analysis.gaia_input.resolve_children_batch")
+@patch("gaiadr3_analysis.gaia_input.resolve_parents_batch")
+@patch("gaiadr3_analysis.gaia_input.Simbad")
+def test_find_cluster_distance_filter_excludes_out_of_range_candidate(mock_simbad, mock_parents, mock_children):
+    """Checks that dist_min/dist_max excludes a candidate whose implied distance is out of range.
+
+    Args:
+        mock_simbad: Mocked Simbad class from astroquery.
+        mock_parents: Mocked resolve_parents_batch function.
+        mock_children: Mocked resolve_children_batch function.
+    """
+    mock_simbad.query_region.return_value = FakeTable(
+        [
+            {"main_id": "Star A", "ra": 10.0, "dec": 20.0, "plx_value": 100.0},
+            {"main_id": "Star B", "ra": 50.0, "dec": 60.0, "plx_value": 1.0},
+        ],
+        colnames=["main_id", "ra", "dec", "plx_value"],
+    )
+    mock_parents.return_value = {
+        "Star A": ("Cluster Near", "OpC", 90.0),
+        "Star B": ("Cluster Far", "OpC", 90.0),
+    }
+    mock_children.return_value = {}
+
+    with patch("builtins.print"):
+        result = find_cluster(ra=10.0, dec=20.0, dist_min=1, dist_max=50)
+
+    assert list(result["name"]) == ["Cluster Near"]
+
+@patch("gaiadr3_analysis.gaia_input.resolve_children_batch")
+@patch("gaiadr3_analysis.gaia_input.resolve_parents_batch")
+@patch("gaiadr3_analysis.gaia_input.Simbad")
+def test_find_cluster_ranks_by_member_count(mock_simbad, mock_parents, mock_children):
+    """Checks that candidates are ranked by member_count, not by angular separation alone.
+
+    Args:
+        mock_simbad: Mocked Simbad class from astroquery.
+        mock_parents: Mocked resolve_parents_batch function.
+        mock_children: Mocked resolve_children_batch function.
+    """
+    mock_simbad.query_region.return_value = FakeTable(
+        [
+            {"main_id": "Star A", "ra": 10.0, "dec": 20.0, "plx_value": None},
+            {"main_id": "Star B", "ra": 10.0, "dec": 20.0, "plx_value": None},
+            {"main_id": "Star C", "ra": 10.0, "dec": 20.0, "plx_value": None},
+            {"main_id": "Star D", "ra": 10.0, "dec": 20.0, "plx_value": None},
+        ],
+        colnames=["main_id", "ra", "dec", "plx_value"],
+    )
+    mock_parents.return_value = {
+        "Star A": ("Big Cluster", "OpC", 90.0),
+        "Star B": ("Big Cluster", "OpC", 90.0),
+        "Star C": ("Big Cluster", "OpC", 90.0),
+        "Star D": ("Small Cluster", "OpC", 90.0),
+    }
+    mock_children.return_value = {}
+
+    with patch("builtins.print"):
+        result = find_cluster(ra=10.0, dec=20.0)
+
+    assert result.iloc[0]["name"] == "Big Cluster"
+    assert result.iloc[0]["member_count"] == 3
+    assert result.iloc[1]["name"] == "Small Cluster"
+
+@patch("gaiadr3_analysis.gaia_input.resolve_children_batch")
+@patch("gaiadr3_analysis.gaia_input.resolve_parents_batch")
+@patch("gaiadr3_analysis.gaia_input.Simbad")
+def test_find_cluster_respects_top_n(mock_simbad, mock_parents, mock_children):
+    """Checks that find_cluster returns at most top_n candidates.
+
+    Args:
+        mock_simbad: Mocked Simbad class from astroquery.
+        mock_parents: Mocked resolve_parents_batch function.
+        mock_children: Mocked resolve_children_batch function.
+    """
+    rows = [{"main_id": f"Star {i}", "ra": 10.0, "dec": 20.0, "plx_value": None} for i in range(3)]
+    mock_simbad.query_region.return_value = FakeTable(rows, colnames=["main_id", "ra", "dec", "plx_value"])
+    mock_parents.return_value = {f"Star {i}": (f"Cluster {i}", "OpC", 90.0) for i in range(3)}
+    mock_children.return_value = {}
+
+    with patch("builtins.print"):
+        result = find_cluster(ra=10.0, dec=20.0, top_n=2)
+
+    assert len(result) == 2
 
 # query_by_adql
 def test_query_by_adql_raises_value_error_without_query_or_identifier():
@@ -490,13 +847,16 @@ def test_find_star_raises_value_error_without_position():
     with pytest.raises(ValueError):
         find_star()
 
+@patch("gaiadr3_analysis.gaia_input.fetch_common_names")
 @patch("gaiadr3_analysis.gaia_input.query_by_adql")
-def test_find_star_runs_with_string_ra_dec(mock_query):
+def test_find_star_runs_with_string_ra_dec(mock_query, mock_names):
     """Checks that find_star converts sexagesimal ra/dec strings and runs a query.
 
     Args:
         mock_query: Mocked query_by_adql function.
+        mock_names: Mocked fetch_common_names function.
     """
+    mock_names.return_value = {}
     mock_query.return_value = pd.DataFrame({"source_id": [1]})
 
     result = find_star(ra="06h45m08.9s", dec="-16d42m58s")
@@ -504,16 +864,19 @@ def test_find_star_runs_with_string_ra_dec(mock_query):
     assert mock_query.called
     assert isinstance(result, pd.DataFrame)
 
+@patch("gaiadr3_analysis.gaia_input.fetch_common_names")
 @patch("gaiadr3_analysis.gaia_input.query_by_adql")
-def test_find_star_runs_with_skycoord(mock_query):
+def test_find_star_runs_with_skycoord(mock_query, mock_names):
     """Checks that find_star accepts a SkyCoord object directly.
 
     Args:
         mock_query: Mocked query_by_adql function.
+        mock_names: Mocked fetch_common_names function.
     """
     from astropy.coordinates import SkyCoord
     import astropy.units as u
 
+    mock_names.return_value = {}
     mock_query.return_value = pd.DataFrame({"source_id": [1]})
     coord = SkyCoord(ra=101.287 * u.deg, dec=-16.716 * u.deg)
 
@@ -522,20 +885,96 @@ def test_find_star_runs_with_skycoord(mock_query):
     assert mock_query.called
     assert isinstance(result, pd.DataFrame)
 
+@patch("gaiadr3_analysis.gaia_input.fetch_common_names")
 @patch("gaiadr3_analysis.gaia_input.query_by_adql")
-def test_find_star_passes_save_file_through(mock_query):
-    """Checks that find_star forwards save_file and file_name to query_by_adql.
+def test_find_star_passes_save_csv_through(mock_query, mock_names):
+    """Checks that find_star forwards save_csv/csv_file_name to query_by_adql's save_file/file_name.
 
     Args:
         mock_query: Mocked query_by_adql function.
+        mock_names: Mocked fetch_common_names function.
     """
+    mock_names.return_value = {}
     mock_query.return_value = pd.DataFrame({"source_id": [1]})
 
-    find_star(ra="06h45m08.9s", dec="-16d42m58s", save_file=True, file_name="my_star")
+    find_star(ra="06h45m08.9s", dec="-16d42m58s", save_csv=True, csv_file_name="my_star")
 
     _, kwargs = mock_query.call_args
     assert kwargs.get("save_file") is True
     assert kwargs.get("file_name") == "my_star"
+
+@patch("gaiadr3_analysis.gaia_input.fetch_common_names")
+@patch("gaiadr3_analysis.gaia_input.query_by_adql")
+def test_find_star_builds_hard_magnitude_filter(mock_query, mock_names):
+    """Checks that mag_min/mag_max are built directly into the ADQL query (a hard filter).
+
+    Args:
+        mock_query: Mocked query_by_adql function.
+        mock_names: Mocked fetch_common_names function.
+    """
+    mock_names.return_value = {}
+    mock_query.return_value = pd.DataFrame({"source_id": [1]})
+
+    find_star(ra="06h45m08.9s", dec="-16d42m58s", mag_min=5, mag_max=15)
+
+    called_query = mock_query.call_args[0][0]
+    assert "phot_g_mean_mag >= 5" in called_query
+    assert "phot_g_mean_mag <= 15" in called_query
+
+@patch("gaiadr3_analysis.gaia_input.fetch_common_names")
+@patch("gaiadr3_analysis.gaia_input.query_by_adql")
+def test_find_star_distance_soft_filter_excludes_out_of_range(mock_query, mock_names):
+    """Checks that dist_min/dist_max is applied after the query (a soft filter), not in the SQL.
+
+    Args:
+        mock_query: Mocked query_by_adql function.
+        mock_names: Mocked fetch_common_names function.
+    """
+    mock_names.return_value = {}
+    mock_query.return_value = pd.DataFrame({
+        "source_id": [1, 2],
+        "parallax": [100.0, 1.0],
+    })
+
+    result = find_star(ra="06h45m08.9s", dec="-16d42m58s", dist_min=1, dist_max=50)
+
+    assert list(result["source_id"]) == [1]
+    called_query = mock_query.call_args[0][0]
+    assert "parallax" not in called_query
+
+@patch("gaiadr3_analysis.gaia_input.fetch_common_names")
+@patch("gaiadr3_analysis.gaia_input.query_by_adql")
+def test_find_star_distance_filter_keeps_missing_parallax(mock_query, mock_names):
+    """Checks that a source with no parallax on file is kept, not dropped, by the distance filter.
+
+    Args:
+        mock_query: Mocked query_by_adql function.
+        mock_names: Mocked fetch_common_names function.
+    """
+    mock_names.return_value = {}
+    mock_query.return_value = pd.DataFrame({"source_id": [1], "parallax": [None]})
+
+    result = find_star(ra="06h45m08.9s", dec="-16d42m58s", dist_min=1, dist_max=50)
+
+    assert list(result["source_id"]) == [1]
+
+@patch("gaiadr3_analysis.gaia_input.fetch_common_names")
+@patch("gaiadr3_analysis.gaia_input.query_by_adql")
+def test_find_star_adds_common_name_column_after_source_id(mock_query, mock_names):
+    """Checks that the common_name column is populated and placed right after source_id.
+
+    Args:
+        mock_query: Mocked query_by_adql function.
+        mock_names: Mocked fetch_common_names function.
+    """
+    mock_names.return_value = {1: "Proxima Centauri"}
+    mock_query.return_value = pd.DataFrame({"source_id": [1], "ra": [1.0], "dec": [2.0]})
+
+    result = find_star(ra="06h45m08.9s", dec="-16d42m58s", plot=False)
+
+    assert result.iloc[0]["common_name"] == "Proxima Centauri"
+    cols = list(result.columns)
+    assert cols.index("common_name") == cols.index("source_id") + 1
 
 # gaia_login_prompt
 def test_gaia_login_prompt_skips_login_on_no():
